@@ -63,6 +63,11 @@ Once installed, you will find the new nodes in the "Vertex AI" category in Comfy
 *   **Veo3 Node:** This node takes a text prompt as input and generates a video. You can use the [VHS (Video Helper Suite)](https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite) for video manipulation and previewing.
 *   **Imagen4 Node:** This node takes a text prompt as input and generates an image. You can use the [Easy API Nodes](https://github.com/lldacing/comfyui-easyapi-nodes/) for image manipulation and previewing.
 
+## Preview
+
+![Comfy UI Preview](https://raw.githubusercontent.com/NucleusEngineering/vertexai-comfyui-api-nodes/refs/heads/main/static/sample.png)
+
+
 ## License
 
 This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.
