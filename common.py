@@ -1,5 +1,6 @@
 import json
 import logging
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -7,7 +8,7 @@ _UNSET = object()
 _cached_email: object = _UNSET
 
 
-def _resolve_auth_email() -> str | None:
+def _resolve_auth_email() -> Optional[str]:
     """Retrieve the email address from the active ADC credentials (cached after first call)."""
     try:
         import google.auth
@@ -36,7 +37,7 @@ def _resolve_auth_email() -> str | None:
     return None
 
 
-def get_auth_email() -> str | None:
+def get_auth_email() -> Optional[str]:
     # Prefer OAuth2 user email captured from the reverse proxy (nginx + oauth2-proxy)
     try:
         from .oauth_user import get_oauth_email

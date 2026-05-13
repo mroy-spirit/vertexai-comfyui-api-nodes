@@ -1,4 +1,6 @@
 import logging
+from typing import Optional
+
 from aiohttp import web
 
 logger = logging.getLogger(__name__)
@@ -6,10 +8,10 @@ logger = logging.getLogger(__name__)
 # Last OAuth2 user email captured from the reverse proxy.
 # Good enough for single-user ComfyUI; for multi-user setups this would need
 # to be keyed per-session/client-id.
-_oauth_email: str | None = None
+_oauth_email: Optional[str] = None
 
 
-def get_oauth_email() -> str | None:
+def get_oauth_email() -> Optional[str]:
     return _oauth_email
 
 

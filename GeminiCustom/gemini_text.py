@@ -2,6 +2,7 @@ import io
 import json
 import logging
 import os
+from typing import Optional
 
 import numpy as np
 import torch
@@ -55,7 +56,7 @@ class GeminiTextVertexAINode:
         top_k: int = 1,
         max_output_tokens: int = 2048,
         stop_sequences: str = "",
-        image: torch.Tensor | None = None,
+        image: Optional[torch.Tensor] = None,
         video_urls: str = "",
         custom_label_key: str = "",
         custom_label_value: str = "",

@@ -8,6 +8,7 @@ import base64
 import json
 import logging
 import os
+from typing import Optional
 from io import BytesIO
 
 import numpy as np
@@ -154,7 +155,7 @@ class GeminiVertexAINode:
         resolution: str = "1K",
         response_modalities: str = "IMAGE+TEXT",
         thinking_level: str = "MINIMAL",
-        images: torch.Tensor | None = None,
+        images: Optional[torch.Tensor] = None,
         system_prompt: str = "",
         custom_label_key: str = "",
         custom_label_value: str = "",
