@@ -61,6 +61,7 @@ Thumbs.db
 # Project specific
 .claude/
 *.log
+vertexai-settings.json
 check-vertexai-models/
 check-vertexai-models.skill
 PROJET_MAP.md
