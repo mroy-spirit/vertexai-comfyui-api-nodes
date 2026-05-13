@@ -16,6 +16,8 @@ from google.genai.types import (
     RawReferenceImage,
 )
 
+from ..common import build_labels as _build_labels
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_EDIT_MODEL = "imagen-4.0-capability-001"
@@ -40,18 +42,8 @@ class _Imagen4EditBase:
     # Labels                                                               #
     # ------------------------------------------------------------------ #
 
-    def _parse_labels(self, labels_json: str) -> dict | None:
-        if not labels_json or not labels_json.strip():
-            return None
-        try:
-            labels = json.loads(labels_json)
-            if not isinstance(labels, dict):
-                logger.warning("labels_json must be a JSON object. Labels will be skipped.")
-                return None
-            return labels
-        except json.JSONDecodeError as e:
-            logger.warning(f"Invalid labels_json ({e}). Labels will be skipped.")
-            return None
+    def _parse_labels(self, labels_json: str) -> dict:
+        return _build_labels(labels_json)
 
     def _log_labels(self, labels: dict, model: str, gcp_project: str, gcp_location: str, event: str):
         logger.info(json.dumps({

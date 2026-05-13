@@ -21,6 +21,8 @@ import google.auth.transport.requests
 
 import folder_paths
 
+from ..common import build_labels
+
 logger = logging.getLogger(__name__)
 
 _VEO3_MODELS = [
@@ -61,19 +63,6 @@ class _VeoBase:
         buf = BytesIO()
         pil_image.save(buf, format="PNG")
         return base64.b64encode(buf.getvalue()).decode("utf-8")
-
-    def _parse_labels(self, labels_json: str) -> dict | None:
-        if not labels_json or not labels_json.strip():
-            return None
-        try:
-            labels = json.loads(labels_json)
-            if not isinstance(labels, dict):
-                logger.warning("labels_json must be a JSON object. Labels will be skipped.")
-                return None
-            return labels
-        except json.JSONDecodeError as e:
-            logger.warning(f"Invalid labels_json ({e}). Labels will be skipped.")
-            return None
 
     def _log_labels(self, labels: dict, model_id: str, gcp_project: str, gcp_location: str):
         logger.info(json.dumps({
@@ -211,9 +200,7 @@ class Veo3VertexAINode(_VeoBase):
 
         access_token = self.get_access_token()
 
-        labels = self._parse_labels(labels_json)
-        if labels:
-            self._log_labels(labels, model_id, gcp_project, gcp_location)
+        self._log_labels(build_labels(labels_json), model_id, gcp_project, gcp_location)
 
         instances = [{"prompt": prompt}]
         if image is not None:
@@ -315,9 +302,7 @@ class Veo3FirstLastFrameVertexAINode(_VeoBase):
 
         access_token = self.get_access_token()
 
-        labels = self._parse_labels(labels_json)
-        if labels:
-            self._log_labels(labels, model_id, gcp_project, gcp_location)
+        self._log_labels(build_labels(labels_json), model_id, gcp_project, gcp_location)
 
         instance = {
             "prompt": prompt,

@@ -24,9 +24,7 @@ class BGSwapMaskVertexAINode(_Imagen4EditBase):
         safety_filter_level="BLOCK_MEDIUM_AND_ABOVE",
         person_generation="DONT_ALLOW", labels_json="",
     ):
-        labels = self._parse_labels(labels_json)
-        if labels:
-            self._log_labels(labels, model_name, gcp_project, gcp_location, "bgswap_mask_request")
+        self._log_labels(self._parse_labels(labels_json), model_name, gcp_project, gcp_location, "bgswap_mask_request")
 
         client = self._get_client(gcp_project, gcp_location)
         raw_ref = RawReferenceImage(
@@ -65,9 +63,7 @@ class BGSwapAutoMaskVertexAINode(_Imagen4EditBase):
         safety_filter_level="BLOCK_MEDIUM_AND_ABOVE",
         person_generation="DONT_ALLOW", labels_json="",
     ):
-        labels = self._parse_labels(labels_json)
-        if labels:
-            self._log_labels(labels, model_name, gcp_project, gcp_location, "bgswap_automask_request")
+        self._log_labels(self._parse_labels(labels_json), model_name, gcp_project, gcp_location, "bgswap_automask_request")
 
         client = self._get_client(gcp_project, gcp_location)
         raw_ref = RawReferenceImage(

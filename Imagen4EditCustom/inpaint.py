@@ -40,9 +40,7 @@ class InpaintInsertMaskVertexAINode(_Imagen4EditBase):
         safety_filter_level="BLOCK_MEDIUM_AND_ABOVE",
         person_generation="DONT_ALLOW", labels_json="",
     ):
-        labels = self._parse_labels(labels_json)
-        if labels:
-            self._log_labels(labels, model_name, gcp_project, gcp_location, "inpaint_insert_mask_request")
+        self._log_labels(self._parse_labels(labels_json), model_name, gcp_project, gcp_location, "inpaint_insert_mask_request")
 
         client = self._get_client(gcp_project, gcp_location)
         raw_ref = RawReferenceImage(reference_id=0, reference_image=self._pil_to_genai(self._tensor_to_pil(image)))
@@ -73,9 +71,7 @@ class InpaintInsertAutoMaskVertexAINode(_Imagen4EditBase):
         safety_filter_level="BLOCK_MEDIUM_AND_ABOVE",
         person_generation="DONT_ALLOW", labels_json="",
     ):
-        labels = self._parse_labels(labels_json)
-        if labels:
-            self._log_labels(labels, model_name, gcp_project, gcp_location, "inpaint_insert_automask_request")
+        self._log_labels(self._parse_labels(labels_json), model_name, gcp_project, gcp_location, "inpaint_insert_automask_request")
 
         client = self._get_client(gcp_project, gcp_location)
         raw_ref = RawReferenceImage(reference_id=0, reference_image=self._pil_to_genai(self._tensor_to_pil(image)))
@@ -106,9 +102,7 @@ class InpaintInsertSemanticMaskVertexAINode(_Imagen4EditBase):
         safety_filter_level="BLOCK_MEDIUM_AND_ABOVE",
         person_generation="DONT_ALLOW", labels_json="",
     ):
-        labels = self._parse_labels(labels_json)
-        if labels:
-            self._log_labels(labels, model_name, gcp_project, gcp_location, "inpaint_insert_semantic_request")
+        self._log_labels(self._parse_labels(labels_json), model_name, gcp_project, gcp_location, "inpaint_insert_semantic_request")
 
         client = self._get_client(gcp_project, gcp_location)
         raw_ref = RawReferenceImage(reference_id=0, reference_image=self._pil_to_genai(self._tensor_to_pil(image)))
@@ -143,9 +137,7 @@ class InpaintRemoveMaskVertexAINode(_Imagen4EditBase):
         safety_filter_level="BLOCK_MEDIUM_AND_ABOVE",
         person_generation="DONT_ALLOW", labels_json="",
     ):
-        labels = self._parse_labels(labels_json)
-        if labels:
-            self._log_labels(labels, model_name, gcp_project, gcp_location, "inpaint_remove_mask_request")
+        self._log_labels(self._parse_labels(labels_json), model_name, gcp_project, gcp_location, "inpaint_remove_mask_request")
 
         client = self._get_client(gcp_project, gcp_location)
         raw_ref = RawReferenceImage(reference_id=0, reference_image=self._pil_to_genai(self._tensor_to_pil(image)))
@@ -176,9 +168,7 @@ class InpaintRemoveAutoMaskVertexAINode(_Imagen4EditBase):
         safety_filter_level="BLOCK_MEDIUM_AND_ABOVE",
         person_generation="DONT_ALLOW", labels_json="",
     ):
-        labels = self._parse_labels(labels_json)
-        if labels:
-            self._log_labels(labels, model_name, gcp_project, gcp_location, "inpaint_remove_automask_request")
+        self._log_labels(self._parse_labels(labels_json), model_name, gcp_project, gcp_location, "inpaint_remove_automask_request")
 
         client = self._get_client(gcp_project, gcp_location)
         raw_ref = RawReferenceImage(reference_id=0, reference_image=self._pil_to_genai(self._tensor_to_pil(image)))
@@ -209,9 +199,7 @@ class InpaintRemoveSemanticMaskVertexAINode(_Imagen4EditBase):
         safety_filter_level="BLOCK_MEDIUM_AND_ABOVE",
         person_generation="DONT_ALLOW", labels_json="",
     ):
-        labels = self._parse_labels(labels_json)
-        if labels:
-            self._log_labels(labels, model_name, gcp_project, gcp_location, "inpaint_remove_semantic_request")
+        self._log_labels(self._parse_labels(labels_json), model_name, gcp_project, gcp_location, "inpaint_remove_semantic_request")
 
         client = self._get_client(gcp_project, gcp_location)
         raw_ref = RawReferenceImage(reference_id=0, reference_image=self._pil_to_genai(self._tensor_to_pil(image)))

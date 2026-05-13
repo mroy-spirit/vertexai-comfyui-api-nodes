@@ -18,6 +18,8 @@ from PIL import Image
 import google.auth
 import google.auth.transport.requests
 
+from ..common import build_labels
+
 logger = logging.getLogger(__name__)
 
 _SYSTEM_PROMPT_DEFAULT = (
@@ -89,19 +91,6 @@ class GeminiVertexAINode:
     # ------------------------------------------------------------------ #
     # Labels                                                               #
     # ------------------------------------------------------------------ #
-
-    def _parse_labels(self, labels_json: str) -> dict | None:
-        if not labels_json or not labels_json.strip():
-            return None
-        try:
-            labels = json.loads(labels_json)
-            if not isinstance(labels, dict):
-                logger.warning("labels_json must be a JSON object. Labels will be skipped.")
-                return None
-            return labels
-        except json.JSONDecodeError as e:
-            logger.warning(f"Invalid labels_json ({e}). Labels will be skipped.")
-            return None
 
     # ------------------------------------------------------------------ #
     # Image conversion                                                     #
@@ -209,17 +198,13 @@ class GeminiVertexAINode:
                 "parts": [{"text": system_prompt}],
             }
 
-        # Labels — logged as structured data so they appear in Cloud Logging
-        # and can be exported to BigQuery via Log Router.
-        labels = self._parse_labels(labels_json)
-        if labels:
-            logger.info(json.dumps({
-                "event": "gemini_vertex_request",
-                "model": model,
-                "gcp_project": gcp_project,
-                "gcp_location": gcp_location,
-                "labels": labels,
-            }))
+        logger.info(json.dumps({
+            "event": "gemini_vertex_request",
+            "model": model,
+            "gcp_project": gcp_project,
+            "gcp_location": gcp_location,
+            "labels": build_labels(labels_json),
+        }))
 
         host = (
             "https://aiplatform.googleapis.com"

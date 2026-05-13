@@ -11,6 +11,8 @@ import requests
 import torch
 from PIL import Image
 
+from ..common import build_labels
+
 logger = logging.getLogger(__name__)
 
 _IMAGEN4_MODELS = [
@@ -62,19 +64,6 @@ class Imagen4:
         credentials.refresh(google.auth.transport.requests.Request())
         return credentials.token
 
-    def _parse_labels(self, labels_json: str) -> dict | None:
-        if not labels_json or not labels_json.strip():
-            return None
-        try:
-            labels = json.loads(labels_json)
-            if not isinstance(labels, dict):
-                logger.warning("labels_json must be a JSON object. Labels will be skipped.")
-                return None
-            return labels
-        except json.JSONDecodeError as e:
-            logger.warning(f"Invalid labels_json ({e}). Labels will be skipped.")
-            return None
-
     def execute(
         self,
         gcp_project,
@@ -92,15 +81,14 @@ class Imagen4:
         add_watermark=False,
         labels_json="",
     ):
-        labels = self._parse_labels(labels_json)
-        if labels:
-            logger.info(json.dumps({
-                "event": "imagen4_vertex_request",
-                "model": model_name,
-                "gcp_project": gcp_project,
-                "gcp_location": gcp_location,
-                "labels": labels,
-            }))
+        labels = build_labels(labels_json)
+        logger.info(json.dumps({
+            "event": "imagen4_vertex_request",
+            "model": model_name,
+            "gcp_project": gcp_project,
+            "gcp_location": gcp_location,
+            "labels": labels,
+        }))
 
         token = self.get_access_token()
         host = (

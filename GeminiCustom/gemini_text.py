@@ -10,6 +10,8 @@ from PIL import Image as PIL_Image
 from google import genai
 from google.genai import types as genai_types
 
+from ..common import build_labels
+
 logger = logging.getLogger(__name__)
 
 
@@ -45,19 +47,6 @@ class GeminiTextVertexAINode:
     FUNCTION = "execute"
     CATEGORY = "VertexAI"
 
-    def _parse_labels(self, labels_json: str) -> dict | None:
-        if not labels_json or not labels_json.strip():
-            return None
-        try:
-            labels = json.loads(labels_json)
-            if not isinstance(labels, dict):
-                logger.warning("labels_json must be a JSON object. Labels will be skipped.")
-                return None
-            return labels
-        except json.JSONDecodeError as e:
-            logger.warning(f"Invalid labels_json ({e}). Labels will be skipped.")
-            return None
-
     def execute(
         self,
         gcp_project: str,
@@ -73,15 +62,13 @@ class GeminiTextVertexAINode:
         video_urls: str = "",
         labels_json: str = "",
     ):
-        labels = self._parse_labels(labels_json)
-        if labels:
-            logger.info(json.dumps({
-                "event": "gemini_text_request",
-                "model": model,
-                "gcp_project": gcp_project,
-                "gcp_location": gcp_location,
-                "labels": labels,
-            }))
+        logger.info(json.dumps({
+            "event": "gemini_text_request",
+            "model": model,
+            "gcp_project": gcp_project,
+            "gcp_location": gcp_location,
+            "labels": build_labels(labels_json),
+        }))
 
         client = genai.Client(vertexai=True, project=gcp_project, location=gcp_location)
 
