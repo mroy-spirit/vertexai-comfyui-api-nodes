@@ -18,7 +18,7 @@ from PIL import Image
 import google.auth
 import google.auth.transport.requests
 
-from ..common import build_labels
+from ..common import build_labels, default_labels_json
 
 logger = logging.getLogger(__name__)
 
@@ -66,8 +66,8 @@ class GeminiVertexAINode:
                 }),
                 "labels_json": ("STRING", {
                     "multiline": False,
-                    "default": "",
-                    "tooltip": 'JSON object of key-value labels for Cloud Logging / BigQuery tracking. Example: {"env": "prod", "workflow": "my-pipeline"}',
+                    "default": default_labels_json(),
+                    "tooltip": 'JSON labels for Cloud Logging / BigQuery tracking. Add extra keys to merge with defaults.',
                 }),
             },
         }

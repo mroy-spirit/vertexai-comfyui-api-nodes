@@ -45,6 +45,15 @@ def get_auth_email() -> str | None:
     return _cached_email
 
 
+def default_labels_json() -> str:
+    """Return the default labels as a JSON string, for use as widget default values."""
+    defaults: dict = {"app": "comfyui"}
+    email = get_auth_email()
+    if email:
+        defaults["user"] = email
+    return json.dumps(defaults)
+
+
 def build_labels(labels_json: str) -> dict:
     """
     Build a labels dict for Cloud Logging / BigQuery tracking.

@@ -21,7 +21,7 @@ import google.auth.transport.requests
 
 import folder_paths
 
-from ..common import build_labels
+from ..common import build_labels, default_labels_json
 
 logger = logging.getLogger(__name__)
 
@@ -169,8 +169,8 @@ class Veo3VertexAINode(_VeoBase):
                 "image": ("IMAGE",),
                 "labels_json": ("STRING", {
                     "multiline": False,
-                    "default": "",
-                    "tooltip": 'JSON labels for Cloud Logging / BigQuery tracking. Example: {"env": "prod"}',
+                    "default": default_labels_json(),
+                    "tooltip": 'JSON labels for Cloud Logging / BigQuery tracking. Add extra keys to merge with defaults.',
                 }),
             },
         }
@@ -274,8 +274,8 @@ class Veo3FirstLastFrameVertexAINode(_VeoBase):
                 "negative_prompt": ("STRING", {"multiline": True, "default": ""}),
                 "labels_json": ("STRING", {
                     "multiline": False,
-                    "default": "",
-                    "tooltip": 'JSON labels for Cloud Logging / BigQuery tracking. Example: {"env": "prod"}',
+                    "default": default_labels_json(),
+                    "tooltip": 'JSON labels for Cloud Logging / BigQuery tracking. Add extra keys to merge with defaults.',
                 }),
             },
         }

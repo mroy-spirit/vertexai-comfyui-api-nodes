@@ -10,7 +10,7 @@ from PIL import Image as PIL_Image
 from google import genai
 from google.genai import types as genai_types
 
-from ..common import build_labels
+from ..common import build_labels, default_labels_json
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +36,8 @@ class GeminiTextVertexAINode:
                 "video_urls": ("STRING", {"multiline": True, "default": "", "tooltip": "One GCS video URL per line (gs://...)"}),
                 "labels_json": ("STRING", {
                     "multiline": False,
-                    "default": "",
-                    "tooltip": 'JSON labels for Cloud Logging / BigQuery tracking. Example: {"env": "prod"}',
+                    "default": default_labels_json(),
+                    "tooltip": 'JSON labels for Cloud Logging / BigQuery tracking. Add extra keys to merge with defaults.',
                 }),
             },
         }

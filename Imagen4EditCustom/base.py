@@ -16,7 +16,7 @@ from google.genai.types import (
     RawReferenceImage,
 )
 
-from ..common import build_labels as _build_labels
+from ..common import build_labels as _build_labels, default_labels_json as _default_labels_json
 
 logger = logging.getLogger(__name__)
 
@@ -177,7 +177,7 @@ class _Imagen4EditBase:
             "person_generation": (PERSON_GENERATION_MODES, {"default": "DONT_ALLOW"}),
             "labels_json": ("STRING", {
                 "multiline": False,
-                "default": "",
-                "tooltip": 'JSON labels for Cloud Logging / BigQuery tracking. Example: {"env": "prod"}',
+                "default": _default_labels_json(),
+                "tooltip": 'JSON labels for Cloud Logging / BigQuery tracking. Add extra keys to merge with defaults.',
             }),
         }
