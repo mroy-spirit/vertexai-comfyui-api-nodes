@@ -190,14 +190,17 @@ class GeminiVertexAINode:
         if aspect_ratio != "auto":
             image_config["aspectRatio"] = aspect_ratio
 
+        generation_config: dict = {
+            "responseModalities": modalities,
+            "imageConfig": image_config,
+            "seed": seed,
+        }
+        if thinking_level == "HIGH":
+            generation_config["thinkingConfig"] = {"thinkingLevel": "HIGH"}
+
         body: dict = {
             "contents": [{"role": "user", "parts": parts}],
-            "generationConfig": {
-                "responseModalities": modalities,
-                "imageConfig": image_config,
-                "thinkingConfig": {"thinkingLevel": thinking_level},
-                "seed": seed,
-            },
+            "generationConfig": generation_config,
         }
 
         if system_prompt and system_prompt.strip():
