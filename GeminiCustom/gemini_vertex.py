@@ -47,7 +47,7 @@ class GeminiVertexAINode:
         return {
             "required": {
                 "gcp_project": ("STRING", {"default": os.environ.get("PROJECT_ID", "your-gcp-project")}),
-                "gcp_location": ("STRING", {"default": os.environ.get("LOCATION", "us-central1")}),
+                "gcp_location": ("STRING", {"default": os.environ.get("LOCATION", "global")}),
                 "model": (["gemini-3.1-flash-image-preview", "gemini-3-pro-image-preview"],),
                 "prompt": ("STRING", {"multiline": True, "default": ""}),
             },
@@ -218,11 +218,12 @@ class GeminiVertexAINode:
                 "labels": labels,
             }))
 
-        url = (
-            f"https://{gcp_location}-aiplatform.googleapis.com"
-            f"/v1/projects/{gcp_project}/locations/{gcp_location}"
-            f"/publishers/google/models/{model}:generateContent"
+        host = (
+            "https://aiplatform.googleapis.com"
+            if gcp_location == "global"
+            else f"https://{gcp_location}-aiplatform.googleapis.com"
         )
+        url = f"{host}/v1/projects/{gcp_project}/locations/{gcp_location}/publishers/google/models/{model}:generateContent"
         headers = {
             "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json",

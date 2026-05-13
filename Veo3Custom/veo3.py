@@ -48,6 +48,12 @@ class _VeoBase:
         credentials.refresh(google.auth.transport.requests.Request())
         return credentials.token
 
+    @staticmethod
+    def _api_host(gcp_location: str) -> str:
+        if gcp_location == "global":
+            return "https://aiplatform.googleapis.com"
+        return f"https://{gcp_location}-aiplatform.googleapis.com"
+
     def _tensor_to_base64(self, tensor: torch.Tensor) -> str:
         """float32 tensor [H, W, C] → base64-encoded PNG string."""
         np_image = (tensor.numpy() * 255).clip(0, 255).astype(np.uint8)
@@ -101,7 +107,7 @@ class _VeoBase:
     ) -> str:
         """Poll the long-running operation until done. Returns the GCS URI or raises."""
         url = (
-            f"https://{gcp_location}-aiplatform.googleapis.com"
+            f"{self._api_host(gcp_location)}"
             f"/v1/projects/{gcp_project}/locations/{gcp_location}"
             f"/publishers/google/models/{model_id}:fetchPredictOperation"
         )
@@ -233,7 +239,7 @@ class Veo3VertexAINode(_VeoBase):
             parameters["seed"] = seed
 
         url = (
-            f"https://{gcp_location}-aiplatform.googleapis.com"
+            f"{self._api_host(gcp_location)}"
             f"/v1/projects/{gcp_project}/locations/{gcp_location}"
             f"/publishers/google/models/{model_id}:predictLongRunning"
         )
@@ -341,7 +347,7 @@ class Veo3FirstLastFrameVertexAINode(_VeoBase):
             parameters["seed"] = seed
 
         url = (
-            f"https://{gcp_location}-aiplatform.googleapis.com"
+            f"{self._api_host(gcp_location)}"
             f"/v1/projects/{gcp_project}/locations/{gcp_location}"
             f"/publishers/google/models/{model_id}:predictLongRunning"
         )

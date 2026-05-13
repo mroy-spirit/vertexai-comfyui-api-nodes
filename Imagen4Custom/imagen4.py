@@ -103,10 +103,12 @@ class Imagen4:
             }))
 
         token = self.get_access_token()
-        url = (
-            f"https://{gcp_location}-aiplatform.googleapis.com/v1/projects/{gcp_project}"
-            f"/locations/{gcp_location}/publishers/google/models/{model_name}:predict"
+        host = (
+            "https://aiplatform.googleapis.com"
+            if gcp_location == "global"
+            else f"https://{gcp_location}-aiplatform.googleapis.com"
         )
+        url = f"{host}/v1/projects/{gcp_project}/locations/{gcp_location}/publishers/google/models/{model_name}:predict"
         headers = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
