@@ -174,7 +174,7 @@ class Veo3VertexAINode(_VeoBase):
                 "resolution": (["720p", "1080p", "4k"],),
                 "generate_audio": ("BOOLEAN", {"default": True}),
                 "person_generation": (["allow_all", "dont_allow"],),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 0xFFFFFFFF}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 0x7FFFFFFF}),
                 "negative_prompt": ("STRING", {"multiline": True, "default": ""}),
                 "enhance_prompt": ("BOOLEAN", {"default": True}),
                 "image": ("IMAGE",),
@@ -283,7 +283,7 @@ class Veo3FirstLastFrameVertexAINode(_VeoBase):
                 "duration_seconds": ("INT", {"default": 8, "min": 4, "max": 8, "step": 2}),
                 "resolution": (["720p", "1080p", "4k"],),
                 "generate_audio": ("BOOLEAN", {"default": True}),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 0xFFFFFFFF}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 0x7FFFFFFF}),
                 "negative_prompt": ("STRING", {"multiline": True, "default": ""}),
                 "labels_json": ("STRING", {
                     "multiline": False,

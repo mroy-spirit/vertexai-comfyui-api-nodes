@@ -52,7 +52,7 @@ class GeminiVertexAINode:
                 "prompt": ("STRING", {"multiline": True, "default": ""}),
             },
             "optional": {
-                "seed": ("INT", {"default": 42, "min": 0, "max": 0xFFFFFFFFFFFFFFFF}),
+                "seed": ("INT", {"default": 42, "min": 0, "max": 0x7FFFFFFF}),
                 "aspect_ratio": (_ASPECT_RATIOS, {"default": "auto"}),
                 "resolution": (["1K", "2K", "4K"], {"default": "1K"}),
                 "response_modalities": (["IMAGE+TEXT", "IMAGE"],),

@@ -35,7 +35,7 @@ class Imagen4:
             },
             "optional": {
                 "negative_prompt": ("STRING", {"multiline": True, "default": ""}),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 0x7FFFFFFF}),
                 "number_of_images": ("INT", {"default": 1, "min": 1, "max": 4}),
                 "aspect_ratio": (_ASPECT_RATIOS,),
                 "sample_image_size": (["1K", "2K"],),
