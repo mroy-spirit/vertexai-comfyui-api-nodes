@@ -55,23 +55,20 @@ def get_auth_email() -> str | None:
 
 
 def default_labels_json() -> str:
-    """Return the default labels as a JSON string, for use as widget default values."""
-    defaults: dict = {"app": "comfyui"}
-    email = get_auth_email()
-    if email:
-        defaults["user"] = email
-    return json.dumps(defaults)
+    """Return the default labels as a JSON string, for use as widget default values.
+    Does not include 'user' — that is always injected server-side at execution time."""
+    return json.dumps({"app": "comfyui"})
 
 
 def build_labels(labels_json: str) -> dict:
     """
     Build a labels dict for Cloud Logging / BigQuery tracking.
 
-    Always includes:
+    Always sets (not overridable by labels_json):
       - app = "comfyui"
-      - user = authenticated email (if resolvable from ADC)
+      - user = OAuth2 email from reverse proxy, or ADC email as fallback
 
-    User-provided labels_json is merged on top and can override defaults.
+    User-provided labels_json can add extra keys (e.g. env, workflow).
     """
     user_labels: dict = {}
     if labels_json and labels_json.strip():
@@ -84,9 +81,10 @@ def build_labels(labels_json: str) -> dict:
         except json.JSONDecodeError as exc:
             logger.warning(f"Invalid labels_json ({exc}); user labels ignored.")
 
-    defaults: dict = {"app": "comfyui"}
+    # Start with user labels, then overwrite reserved keys so they can't be spoofed
+    result = {**user_labels}
+    result["app"] = "comfyui"
     email = get_auth_email()
     if email:
-        defaults["user"] = email
-
-    return {**defaults, **user_labels}
+        result["user"] = email
+    return result

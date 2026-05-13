@@ -18,9 +18,12 @@ def register(prompt_server) -> None:
     async def whoami(request: web.Request) -> web.Response:
         global _oauth_email
         # oauth2-proxy sets this header on every authenticated request
-        email = request.headers.get("X-Auth-Request-Email")
-        if email:
-            if email != _oauth_email:
-                logger.info(f"OAuth user identified: {email}")
-            _oauth_email = email
-        return web.json_response({"email": _oauth_email})
+        header_email = request.headers.get("X-Auth-Request-Email")
+        if header_email:
+            if header_email != _oauth_email:
+                logger.info(f"OAuth user identified: {header_email}")
+            _oauth_email = header_email
+        return web.json_response({
+            "email": _oauth_email,
+            "header_received": header_email,  # None if header was absent
+        })
