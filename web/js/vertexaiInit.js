@@ -1,0 +1,19 @@
+import { app } from "../../scripts/app.js";
+
+// Ping /vertexai/whoami on page load so the server can capture the
+// X-Auth-Request-Email header set by oauth2-proxy and use it as the
+// "user" label in Cloud Logging / BigQuery tracking.
+app.registerExtension({
+    name: "VertexAI.Init",
+    async setup() {
+        try {
+            const resp = await fetch("/vertexai/whoami");
+            const data = await resp.json();
+            if (data.email) {
+                console.log(`[VertexAI] Authenticated as ${data.email}`);
+            }
+        } catch (e) {
+            console.warn("[VertexAI] Could not contact /vertexai/whoami:", e);
+        }
+    },
+});

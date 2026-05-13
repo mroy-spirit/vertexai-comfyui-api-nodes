@@ -39,6 +39,15 @@ def _resolve_auth_email() -> str | None:
 
 
 def get_auth_email() -> str | None:
+    # Prefer the OAuth2 user email captured from the reverse proxy (nginx + oauth2-proxy)
+    try:
+        from .oauth_user import get_oauth_email
+        email = get_oauth_email()
+        if email:
+            return email
+    except Exception:
+        pass
+    # Fall back to ADC credentials (service account on GCE)
     global _cached_email
     if _cached_email is _UNSET:
         _cached_email = _resolve_auth_email()
