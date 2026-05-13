@@ -57,17 +57,30 @@ def _detect_project_id() -> Optional[str]:
     return None
 
 
-def _compute_default_labels_json() -> str:
-    """JSON-encoded labels that build_labels() will always apply: app + user."""
-    labels = {"app": "comfyui"}
+_RESERVED_LABEL_KEYS = ("app", "user")
+
+
+def _merge_reserved_labels(stored_json: Optional[str]) -> str:
+    """Always inject the reserved labels (app, user) into the extra_labels
+    JSON so the Settings panel reflects the *current* OAuth user. Any stored
+    extras (e.g. env=prod) are preserved and kept alongside."""
+    try:
+        parsed = json.loads(stored_json or "{}")
+        if not isinstance(parsed, dict):
+            parsed = {}
+    except Exception:
+        parsed = {}
+
+    parsed["app"] = "comfyui"
     try:
         from .oauth_user import get_oauth_email
         email = get_oauth_email()
         if email:
-            labels["user"] = email
+            parsed["user"] = email
     except Exception:
         pass
-    return json.dumps(labels)
+
+    return json.dumps(parsed)
 
 
 def get_settings() -> dict:
@@ -82,10 +95,25 @@ def get_settings() -> dict:
         if detected:
             merged["gcp_project"] = detected
 
-    if merged.get("extra_labels") in (None, "", "{}"):
-        merged["extra_labels"] = _compute_default_labels_json()
+    # Re-inject reserved labels on every read so the displayed user stays
+    # in sync with whoever is currently authenticated.
+    merged["extra_labels"] = _merge_reserved_labels(merged.get("extra_labels"))
 
     return merged
+
+
+def _strip_reserved_labels(extra_labels_json: str) -> str:
+    """Remove reserved keys from an incoming extra_labels JSON before persisting
+    so we never bake a stale email into the on-disk settings file."""
+    try:
+        parsed = json.loads(extra_labels_json or "{}")
+        if not isinstance(parsed, dict):
+            return "{}"
+        for key in _RESERVED_LABEL_KEYS:
+            parsed.pop(key, None)
+        return json.dumps(parsed)
+    except Exception:
+        return "{}"
 
 
 def register(prompt_server) -> None:
@@ -106,6 +134,10 @@ def register(prompt_server) -> None:
             data = await request.json()
         except Exception:
             return web.json_response({"error": "Invalid JSON"}, status=400)
+        # Strip reserved label keys so the on-disk file never contains a
+        # stale OAuth email; the reserved labels are re-injected on read.
+        if "extra_labels" in data and isinstance(data["extra_labels"], str):
+            data["extra_labels"] = _strip_reserved_labels(data["extra_labels"])
         try:
             stored = json.loads(_SETTINGS_FILE.read_text(encoding="utf-8"))
         except Exception:
