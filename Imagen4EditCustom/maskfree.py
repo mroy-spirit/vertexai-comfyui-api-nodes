@@ -20,9 +20,9 @@ class MaskFreeEditVertexAINode(_Imagen4EditBase):
         image, prompt,
         seed=0, number_of_images=1,
         safety_filter_level="BLOCK_MEDIUM_AND_ABOVE",
-        person_generation="DONT_ALLOW", labels_json="",
+        person_generation="DONT_ALLOW", custom_label_key="", custom_label_value="",
     ):
-        self._log_labels(self._parse_labels(labels_json), model_name, gcp_project, gcp_location, "maskfree_edit_request")
+        self._log_labels(self._parse_labels(custom_label_key, custom_label_value), model_name, gcp_project, gcp_location, "maskfree_edit_request")
 
         client = self._get_client(gcp_project, gcp_location)
         raw_ref = RawReferenceImage(

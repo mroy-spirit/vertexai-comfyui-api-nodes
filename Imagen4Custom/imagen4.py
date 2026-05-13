@@ -11,7 +11,7 @@ import requests
 import torch
 from PIL import Image
 
-from ..common import build_labels, default_labels_json
+from ..common import build_labels
 
 logger = logging.getLogger(__name__)
 
@@ -45,11 +45,8 @@ class Imagen4:
                 "person_generation": (["dont_allow", "allow_none", "allow_adult", "allow_all"],),
                 "safety_filter_level": (["block_low_and_above", "block_medium_and_above", "block_only_high", "block_none"],),
                 "add_watermark": ("BOOLEAN", {"default": False}),
-                "labels_json": ("STRING", {
-                    "multiline": False,
-                    "default": default_labels_json(),
-                    "tooltip": 'JSON labels for Cloud Logging / BigQuery tracking. Add extra keys to merge with defaults.',
-                }),
+                "custom_label_key": ("STRING", {"default": "", "tooltip": "Optional label key, e.g. workflow"}),
+                "custom_label_value": ("STRING", {"default": "", "tooltip": "Optional label value, e.g. product-shot"}),
             },
         }
 
@@ -79,9 +76,10 @@ class Imagen4:
         person_generation="dont_allow",
         safety_filter_level="block_medium_and_above",
         add_watermark=False,
-        labels_json="",
+        custom_label_key="",
+        custom_label_value="",
     ):
-        labels = build_labels(labels_json)
+        labels = build_labels(custom_label_key, custom_label_value)
         logger.info(json.dumps({
             "event": "imagen4_vertex_request",
             "model": model_name,

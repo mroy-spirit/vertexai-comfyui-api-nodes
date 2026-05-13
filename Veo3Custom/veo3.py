@@ -21,7 +21,7 @@ import google.auth.transport.requests
 
 import folder_paths
 
-from ..common import build_labels, default_labels_json
+from ..common import build_labels
 
 logger = logging.getLogger(__name__)
 
@@ -167,11 +167,8 @@ class Veo3VertexAINode(_VeoBase):
                 "negative_prompt": ("STRING", {"multiline": True, "default": ""}),
                 "enhance_prompt": ("BOOLEAN", {"default": True}),
                 "image": ("IMAGE",),
-                "labels_json": ("STRING", {
-                    "multiline": False,
-                    "default": default_labels_json(),
-                    "tooltip": 'JSON labels for Cloud Logging / BigQuery tracking. Add extra keys to merge with defaults.',
-                }),
+                "custom_label_key": ("STRING", {"default": "", "tooltip": "Optional label key, e.g. workflow"}),
+                "custom_label_value": ("STRING", {"default": "", "tooltip": "Optional label value, e.g. product-shot"}),
             },
         }
 
@@ -193,14 +190,15 @@ class Veo3VertexAINode(_VeoBase):
         negative_prompt="",
         enhance_prompt=True,
         image=None,
-        labels_json="",
+        custom_label_key="",
+        custom_label_value="",
     ):
         if resolution == "4k" and model_id in ("veo-3.0-generate-001", "veo-3.0-fast-generate-001"):
             raise ValueError("4K resolution is not supported by Veo 3.0 models.")
 
         access_token = self.get_access_token()
 
-        self._log_labels(build_labels(labels_json), model_id, gcp_project, gcp_location)
+        self._log_labels(build_labels(custom_label_key, custom_label_value), model_id, gcp_project, gcp_location)
 
         instances = [{"prompt": prompt}]
         if image is not None:
@@ -272,11 +270,8 @@ class Veo3FirstLastFrameVertexAINode(_VeoBase):
                 "generate_audio": ("BOOLEAN", {"default": True}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 0x7FFFFFFF}),
                 "negative_prompt": ("STRING", {"multiline": True, "default": ""}),
-                "labels_json": ("STRING", {
-                    "multiline": False,
-                    "default": default_labels_json(),
-                    "tooltip": 'JSON labels for Cloud Logging / BigQuery tracking. Add extra keys to merge with defaults.',
-                }),
+                "custom_label_key": ("STRING", {"default": "", "tooltip": "Optional label key, e.g. workflow"}),
+                "custom_label_value": ("STRING", {"default": "", "tooltip": "Optional label value, e.g. product-shot"}),
             },
         }
 
@@ -295,14 +290,15 @@ class Veo3FirstLastFrameVertexAINode(_VeoBase):
         generate_audio=True,
         seed=0,
         negative_prompt="",
-        labels_json="",
+        custom_label_key="",
+        custom_label_value="",
     ):
         if resolution == "4k" and "lite" in model_id:
             raise ValueError("4K resolution is not supported by veo-3.1-lite.")
 
         access_token = self.get_access_token()
 
-        self._log_labels(build_labels(labels_json), model_id, gcp_project, gcp_location)
+        self._log_labels(build_labels(custom_label_key, custom_label_value), model_id, gcp_project, gcp_location)
 
         instance = {
             "prompt": prompt,

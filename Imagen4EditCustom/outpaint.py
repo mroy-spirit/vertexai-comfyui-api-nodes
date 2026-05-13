@@ -57,9 +57,9 @@ class OutpaintingVertexAINode(_Imagen4EditBase):
         horizontal_placement, vertical_placement, mask_dilation,
         seed=0, number_of_images=1,
         safety_filter_level="BLOCK_MEDIUM_AND_ABOVE",
-        person_generation="DONT_ALLOW", labels_json="",
+        person_generation="DONT_ALLOW", custom_label_key="", custom_label_value="",
     ):
-        self._log_labels(self._parse_labels(labels_json), model_name, gcp_project, gcp_location, "outpaint_request")
+        self._log_labels(self._parse_labels(custom_label_key, custom_label_value), model_name, gcp_project, gcp_location, "outpaint_request")
 
         src_pil = self._tensor_to_pil(image)
         canvas_pil, mask_pil = self._build_padded_image_and_mask(

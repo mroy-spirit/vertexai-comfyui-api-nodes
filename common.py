@@ -19,11 +19,9 @@ def _resolve_auth_email() -> str | None:
         )
         creds.refresh(google.auth.transport.requests.Request())
 
-        # Service accounts and Compute Engine credentials expose this directly
         if hasattr(creds, "service_account_email") and creds.service_account_email:
             return creds.service_account_email
 
-        # User OAuth2 credentials: ask the tokeninfo endpoint
         token = getattr(creds, "token", None)
         if token:
             resp = _req.get(
@@ -39,7 +37,7 @@ def _resolve_auth_email() -> str | None:
 
 
 def get_auth_email() -> str | None:
-    # Prefer the OAuth2 user email captured from the reverse proxy (nginx + oauth2-proxy)
+    # Prefer OAuth2 user email captured from the reverse proxy (nginx + oauth2-proxy)
     try:
         from .oauth_user import get_oauth_email
         email = get_oauth_email()
@@ -54,37 +52,37 @@ def get_auth_email() -> str | None:
     return _cached_email
 
 
-def default_labels_json() -> str:
-    """Return the default labels as a JSON string, for use as widget default values.
-    Does not include 'user' — that is always injected server-side at execution time."""
-    return json.dumps({"app": "comfyui"})
-
-
-def build_labels(labels_json: str) -> dict:
+def build_labels(custom_label_key: str = "", custom_label_value: str = "") -> dict:
     """
     Build a labels dict for Cloud Logging / BigQuery tracking.
 
-    Always sets (not overridable by labels_json):
+    Always sets (not overridable):
       - app = "comfyui"
       - user = OAuth2 email from reverse proxy, or ADC email as fallback
 
-    User-provided labels_json can add extra keys (e.g. env, workflow).
+    Extra labels from the VertexAI settings panel (extra_labels JSON) are merged in.
+    An optional per-node custom label can be added via custom_label_key/value.
     """
-    user_labels: dict = {}
-    if labels_json and labels_json.strip():
-        try:
-            parsed = json.loads(labels_json)
-            if isinstance(parsed, dict):
-                user_labels = parsed
-            else:
-                logger.warning("labels_json must be a JSON object; user labels ignored.")
-        except json.JSONDecodeError as exc:
-            logger.warning(f"Invalid labels_json ({exc}); user labels ignored.")
+    result: dict = {}
 
-    # Start with user labels, then overwrite reserved keys so they can't be spoofed
-    result = {**user_labels}
+    # Admin-configured extra labels from the settings panel
+    try:
+        from .vertexai_settings import get_settings
+        raw = get_settings().get("extra_labels", "{}") or "{}"
+        extra = json.loads(raw)
+        if isinstance(extra, dict):
+            result.update(extra)
+    except Exception:
+        pass
+
+    # Per-node single custom label (both key and value must be non-empty)
+    if custom_label_key and custom_label_key.strip() and custom_label_value:
+        result[custom_label_key.strip()] = custom_label_value
+
+    # System-reserved — always written last so they cannot be overridden
     result["app"] = "comfyui"
     email = get_auth_email()
     if email:
         result["user"] = email
+
     return result

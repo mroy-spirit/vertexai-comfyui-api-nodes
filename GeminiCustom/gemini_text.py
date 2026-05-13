@@ -10,7 +10,7 @@ from PIL import Image as PIL_Image
 from google import genai
 from google.genai import types as genai_types
 
-from ..common import build_labels, default_labels_json
+from ..common import build_labels
 
 logger = logging.getLogger(__name__)
 
@@ -34,11 +34,8 @@ class GeminiTextVertexAINode:
                 "stop_sequences": ("STRING", {"multiline": False, "default": "", "tooltip": "Comma-separated stop sequences"}),
                 "image": ("IMAGE",),
                 "video_urls": ("STRING", {"multiline": True, "default": "", "tooltip": "One GCS video URL per line (gs://...)"}),
-                "labels_json": ("STRING", {
-                    "multiline": False,
-                    "default": default_labels_json(),
-                    "tooltip": 'JSON labels for Cloud Logging / BigQuery tracking. Add extra keys to merge with defaults.',
-                }),
+                "custom_label_key": ("STRING", {"default": "", "tooltip": "Optional label key, e.g. workflow"}),
+                "custom_label_value": ("STRING", {"default": "", "tooltip": "Optional label value, e.g. product-shot"}),
             },
         }
 
@@ -60,14 +57,15 @@ class GeminiTextVertexAINode:
         stop_sequences: str = "",
         image: torch.Tensor | None = None,
         video_urls: str = "",
-        labels_json: str = "",
+        custom_label_key: str = "",
+        custom_label_value: str = "",
     ):
         logger.info(json.dumps({
             "event": "gemini_text_request",
             "model": model,
             "gcp_project": gcp_project,
             "gcp_location": gcp_location,
-            "labels": build_labels(labels_json),
+            "labels": build_labels(custom_label_key, custom_label_value),
         }))
 
         client = genai.Client(vertexai=True, project=gcp_project, location=gcp_location)

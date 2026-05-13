@@ -68,3 +68,4 @@ PROJET_MAP.md
 # Reference-only folders (ComfyUI API framework nodes, not standalone installable)
 Gemini/
 Veo/
+vertexai_nodes/

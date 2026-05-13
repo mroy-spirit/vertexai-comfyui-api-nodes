@@ -8,7 +8,16 @@ def _register_oauth_routes():
     except Exception as _e:
         _logging.getLogger(__name__).warning(f"Could not register /vertexai/whoami route: {_e}")
 
+def _register_settings_routes():
+    try:
+        import server
+        from .vertexai_settings import register
+        register(server.PromptServer.instance)
+    except Exception as _e:
+        _logging.getLogger(__name__).warning(f"Could not register /vertexai/settings routes: {_e}")
+
 _register_oauth_routes()
+_register_settings_routes()
 
 from .Imagen4Custom import NODE_CLASS_MAPPINGS as _IMAGEN4_CLS, NODE_DISPLAY_NAME_MAPPINGS as _IMAGEN4_NAMES
 from .Veo3Custom import NODE_CLASS_MAPPINGS as _VEO3_CLS, NODE_DISPLAY_NAME_MAPPINGS as _VEO3_NAMES

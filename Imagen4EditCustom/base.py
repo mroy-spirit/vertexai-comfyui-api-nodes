@@ -16,7 +16,7 @@ from google.genai.types import (
     RawReferenceImage,
 )
 
-from ..common import build_labels as _build_labels, default_labels_json as _default_labels_json
+from ..common import build_labels as _build_labels
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +42,8 @@ class _Imagen4EditBase:
     # Labels                                                               #
     # ------------------------------------------------------------------ #
 
-    def _parse_labels(self, labels_json: str) -> dict:
-        return _build_labels(labels_json)
+    def _parse_labels(self, custom_label_key: str = "", custom_label_value: str = "") -> dict:
+        return _build_labels(custom_label_key, custom_label_value)
 
     def _log_labels(self, labels: dict, model: str, gcp_project: str, gcp_location: str, event: str):
         logger.info(json.dumps({
@@ -175,9 +175,6 @@ class _Imagen4EditBase:
             "number_of_images": ("INT", {"default": 1, "min": 1, "max": 4}),
             "safety_filter_level": (SAFETY_FILTER_LEVELS, {"default": "BLOCK_MEDIUM_AND_ABOVE"}),
             "person_generation": (PERSON_GENERATION_MODES, {"default": "DONT_ALLOW"}),
-            "labels_json": ("STRING", {
-                "multiline": False,
-                "default": _default_labels_json(),
-                "tooltip": 'JSON labels for Cloud Logging / BigQuery tracking. Add extra keys to merge with defaults.',
-            }),
+            "custom_label_key": ("STRING", {"default": "", "tooltip": "Optional label key, e.g. workflow"}),
+            "custom_label_value": ("STRING", {"default": "", "tooltip": "Optional label value, e.g. product-shot"}),
         }

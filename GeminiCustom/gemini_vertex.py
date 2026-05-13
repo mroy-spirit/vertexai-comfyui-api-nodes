@@ -18,7 +18,7 @@ from PIL import Image
 import google.auth
 import google.auth.transport.requests
 
-from ..common import build_labels, default_labels_json
+from ..common import build_labels
 
 logger = logging.getLogger(__name__)
 
@@ -64,11 +64,8 @@ class GeminiVertexAINode:
                     "multiline": True,
                     "default": _SYSTEM_PROMPT_DEFAULT,
                 }),
-                "labels_json": ("STRING", {
-                    "multiline": False,
-                    "default": default_labels_json(),
-                    "tooltip": 'JSON labels for Cloud Logging / BigQuery tracking. Add extra keys to merge with defaults.',
-                }),
+                "custom_label_key": ("STRING", {"default": "", "tooltip": "Optional label key, e.g. workflow"}),
+                "custom_label_value": ("STRING", {"default": "", "tooltip": "Optional label value, e.g. product-shot"}),
             },
         }
 
@@ -159,7 +156,8 @@ class GeminiVertexAINode:
         thinking_level: str = "MINIMAL",
         images: torch.Tensor | None = None,
         system_prompt: str = "",
-        labels_json: str = "",
+        custom_label_key: str = "",
+        custom_label_value: str = "",
     ):
         access_token = self.get_access_token()
 
@@ -203,7 +201,7 @@ class GeminiVertexAINode:
             "model": model,
             "gcp_project": gcp_project,
             "gcp_location": gcp_location,
-            "labels": build_labels(labels_json),
+            "labels": build_labels(custom_label_key, custom_label_value),
         }))
 
         host = (
