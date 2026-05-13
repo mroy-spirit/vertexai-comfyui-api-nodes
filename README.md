@@ -8,6 +8,7 @@ This project is based on and adapted from:
 
 - **[NucleusEngineering/vertexai-comfyui-api-nodes](https://github.com/NucleusEngineering/vertexai-comfyui-api-nodes)** — original Vertex AI ComfyUI integration
 - **[GoogleCloudPlatform/professional-services — comfyui_custom_nodes](https://github.com/GoogleCloudPlatform/professional-services/tree/main/tools/comfyui_custom_nodes)** — reference implementations for Imagen3 editing (bg swap, inpaint, outpaint, mask-free), Gemini text, and video preview nodes
+- **[comfyanonymous/ComfyUI — API nodes](https://github.com/comfyanonymous/ComfyUI)** — reference implementations for the Gemini and Veo node patterns
 
 ---
 
