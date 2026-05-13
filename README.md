@@ -9,9 +9,9 @@ Custom ComfyUI nodes that call Google Vertex AI models **directly** using Applic
 
 | Node | Category | Description |
 |---|---|---|
-| **Imagen4 Image Generator** | VertexAI | Generate images with Imagen 4 via Vertex AI SDK |
-| **Veo3 Video Generator** | VertexAI | Generate videos from text/image with Veo 3.x models |
-| **Veo3 First-Last Frame** | VertexAI | Interpolate video between a first and last frame |
+| **Imagen4 Image Generator (Vertex AI)** | VertexAI | Generate images with Imagen 4 via Vertex AI REST API |
+| **Veo3 Video Generator (Vertex AI)** | VertexAI | Generate videos from text/image with Veo 3.x models |
+| **Veo3 First-Last Frame (Vertex AI)** | VertexAI | Interpolate video between a first and last frame |
 | **Gemini (Vertex AI)** | VertexAI | Generate images (and optionally text) with Gemini image models |
 
 ---
@@ -50,9 +50,9 @@ Restart ComfyUI. All nodes appear under the **VertexAI** category.
 
 ## Node Reference
 
-### Imagen4 Image Generator
+### Imagen4 Image Generator (Vertex AI)
 
-Generates images using the Imagen 4 Vertex AI SDK. Supports batched output (up to 4 images).
+Generates images using the Imagen 4 REST API. Supports batched output (up to 4 images).
 
 | Input | Type | Required | Description |
 |---|---|---|---|
@@ -75,7 +75,7 @@ Generates images using the Imagen 4 Vertex AI SDK. Supports batched output (up t
 
 ---
 
-### Veo3 Video Generator
+### Veo3 Video Generator (Vertex AI)
 
 Generates videos using the Veo 3.x REST API. Submits a long-running job, polls for completion, downloads the result from GCS.
 
@@ -101,7 +101,7 @@ Generates videos using the Veo 3.x REST API. Submits a long-running job, polls f
 
 ---
 
-### Veo3 First-Last Frame
+### Veo3 First-Last Frame (Vertex AI)
 
 Generates a video that transitions between a first and last frame image. Requires Veo 3.1 models.
 
