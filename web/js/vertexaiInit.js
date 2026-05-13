@@ -1,4 +1,4 @@
-import { app } from "../../scripts/app.js";
+import { app } from "../../../scripts/app.js";
 
 // Ping /vertexai/whoami on page load so the server can capture the
 // X-Auth-Request-Email header set by oauth2-proxy and use it as the
