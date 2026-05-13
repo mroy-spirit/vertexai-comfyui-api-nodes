@@ -186,8 +186,8 @@ class Veo3VertexAINode(_VeoBase):
             },
         }
 
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("local_video_path",)
+    RETURN_TYPES = ("STRING", "STRING")
+    RETURN_NAMES = ("local_video_path", "gcs_uri")
     FUNCTION = "execute"
     CATEGORY = "VertexAI"
 
@@ -258,10 +258,10 @@ class Veo3VertexAINode(_VeoBase):
 
         gcs_uri = self.poll_operation(operation_id, gcp_project, gcp_location, model_id, access_token)
 
-        output_dir = folder_paths.get_temp_directory()
+        output_dir = folder_paths.get_output_directory()
         local_path = os.path.join(output_dir, os.path.basename(gcs_uri))
         self.download_gcs_file(gcs_uri, local_path, access_token)
-        return (local_path,)
+        return (local_path, gcs_uri)
 
 
 class Veo3FirstLastFrameVertexAINode(_VeoBase):
@@ -293,8 +293,8 @@ class Veo3FirstLastFrameVertexAINode(_VeoBase):
             },
         }
 
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("local_video_path",)
+    RETURN_TYPES = ("STRING", "STRING")
+    RETURN_NAMES = ("local_video_path", "gcs_uri")
     FUNCTION = "execute"
     CATEGORY = "VertexAI"
 
@@ -366,10 +366,10 @@ class Veo3FirstLastFrameVertexAINode(_VeoBase):
 
         gcs_uri = self.poll_operation(operation_id, gcp_project, gcp_location, model_id, access_token)
 
-        output_dir = folder_paths.get_temp_directory()
+        output_dir = folder_paths.get_output_directory()
         local_path = os.path.join(output_dir, os.path.basename(gcs_uri))
         self.download_gcs_file(gcs_uri, local_path, access_token)
-        return (local_path,)
+        return (local_path, gcs_uri)
 
 
 NODE_CLASS_MAPPINGS = {
