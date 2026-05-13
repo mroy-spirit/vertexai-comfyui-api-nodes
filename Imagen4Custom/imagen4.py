@@ -1,12 +1,15 @@
+import base64
+import io
 import json
 import logging
 import os
 
+import google.auth
+import google.auth.transport.requests
 import numpy as np
+import requests
 import torch
-
-import vertexai
-from vertexai.preview.vision_models import ImageGenerationModel
+from PIL import Image
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +19,8 @@ _IMAGEN4_MODELS = [
 ]
 
 _ASPECT_RATIOS = ["1:1", "5:4", "3:2", "7:4", "4:3", "16:9", "9:16"]
+
+_IMAGE_SIZE_MAP = {"1K": "1024", "2K": "2048"}
 
 
 class Imagen4:
@@ -49,6 +54,13 @@ class Imagen4:
     RETURN_TYPES = ("IMAGE",)
     FUNCTION = "execute"
     CATEGORY = "VertexAI"
+
+    def get_access_token(self) -> str:
+        credentials, _ = google.auth.default(
+            scopes=["https://www.googleapis.com/auth/cloud-platform"]
+        )
+        credentials.refresh(google.auth.transport.requests.Request())
+        return credentials.token
 
     def _parse_labels(self, labels_json: str) -> dict | None:
         if not labels_json or not labels_json.strip():
@@ -91,27 +103,46 @@ class Imagen4:
             }))
 
         try:
-            vertexai.init(project=gcp_project, location=gcp_location)
-            model = ImageGenerationModel.from_pretrained(model_name)
-
-            response = model.generate_images(
-                prompt=prompt,
-                negative_prompt=negative_prompt or None,
-                seed=seed,
-                number_of_images=number_of_images,
-                aspect_ratio=aspect_ratio,
-                guidance_scale=guidance_scale,
-                person_generation=person_generation,
-                safety_filter_level=safety_filter_level,
-                add_watermark=add_watermark,
+            token = self.get_access_token()
+            url = (
+                f"https://{gcp_location}-aiplatform.googleapis.com/v1/projects/{gcp_project}"
+                f"/locations/{gcp_location}/publishers/google/models/{model_name}:predict"
             )
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            }
+            params = {
+                "sampleCount": number_of_images,
+                "aspectRatio": aspect_ratio,
+                "guidanceScale": guidance_scale,
+                "personGeneration": person_generation,
+                "safetyFilterLevel": safety_filter_level,
+                "addWatermark": add_watermark,
+                "seed": seed,
+                "sampleImageSize": _IMAGE_SIZE_MAP.get(sample_image_size, "1024"),
+            }
+            if negative_prompt:
+                params["negativePrompt"] = negative_prompt
 
-            if not response.images:
+            body = {
+                "instances": [{"prompt": prompt}],
+                "parameters": params,
+            }
+
+            response = requests.post(url, headers=headers, json=body, timeout=120)
+            response.raise_for_status()
+            data = response.json()
+
+            predictions = data.get("predictions", [])
+            if not predictions:
                 raise RuntimeError("The API did not return any images.")
 
             tensors = []
-            for img in response.images:
-                np_image = np.array(img._pil_image).astype(np.float32) / 255.0
+            for pred in predictions:
+                img_bytes = base64.b64decode(pred["bytesBase64Encoded"])
+                pil_img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+                np_image = np.array(pil_img).astype(np.float32) / 255.0
                 tensors.append(torch.from_numpy(np_image))
 
             return (torch.stack(tensors, dim=0),)

@@ -1,4 +1,3 @@
-google-cloud-aiplatform[preview]
 google-auth[compute]
 requests
 Pillow
