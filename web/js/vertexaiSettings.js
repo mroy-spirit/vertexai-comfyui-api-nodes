@@ -69,7 +69,7 @@ app.registerExtension({
     settings: SETTINGS.map(def => ({
         id: def.id,
         name: def.name,
-        category: ["VertexAI", "Google Cloud"],
+        category: ["VertexAI", "Google Cloud", def.key],
         type: "text",
         defaultValue: def.defaultValue,
         tooltip: def.tooltip,
@@ -86,16 +86,18 @@ app.registerExtension({
             for (const def of SETTINGS) {
                 const serverValue = serverSettings[def.key];
                 if (serverValue !== undefined && serverValue !== "") {
-                    app.ui.settings.setSettingValue(def.id, serverValue);
+                    if (app.ui?.settings?.setSettingValue) {
+                        app.ui.settings.setSettingValue(def.id, serverValue);
+                    }
                     _values[def.id] = serverValue;
                 } else {
-                    _values[def.id] = app.ui.settings.getSettingValue(def.id) ?? def.defaultValue;
+                    _values[def.id] = app.ui?.settings?.getSettingValue?.(def.id) ?? def.defaultValue;
                 }
             }
         } catch (e) {
             console.warn("[VertexAI] Could not load settings from server:", e);
             for (const def of SETTINGS) {
-                _values[def.id] = app.ui.settings.getSettingValue(def.id) ?? def.defaultValue;
+                _values[def.id] = app.ui?.settings?.getSettingValue?.(def.id) ?? def.defaultValue;
             }
         }
     },
