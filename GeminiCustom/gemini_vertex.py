@@ -172,11 +172,7 @@ class GeminiVertexAINode:
         system_prompt: str = "",
         labels_json: str = "",
     ):
-        try:
-            access_token = self.get_access_token()
-        except Exception as e:
-            logger.error(f"Authentication failed: {e}")
-            return (_empty_image(), f"ERROR: Authentication failed: {e}", _empty_image())
+        access_token = self.get_access_token()
 
         # Build content parts
         parts: list[dict] = [{"text": prompt}]
@@ -233,22 +229,11 @@ class GeminiVertexAINode:
         }
 
         logger.info(f"Sending request → {url}")
-        try:
-            response = requests.post(url, headers=headers, json=body, timeout=120)
-            response.raise_for_status()
-            response_json = response.json()
-        except requests.exceptions.HTTPError as e:
-            logger.error(f"HTTP error: {e}\nResponse: {e.response.text}")
-            return (_empty_image(), f"ERROR: HTTP {e.response.status_code}: {e.response.text}", _empty_image())
-        except Exception as e:
-            logger.error(f"Request failed: {e}")
-            return (_empty_image(), f"ERROR: {e}", _empty_image())
+        response = requests.post(url, headers=headers, json=body, timeout=120)
+        if not response.ok:
+            raise Exception(f"HTTP {response.status_code}: {response.text}")
 
-        try:
-            image_tensors, text_parts, thought_tensors = self._extract_parts(response_json)
-        except ValueError as e:
-            logger.error(f"Response parsing failed: {e}")
-            return (_empty_image(), f"ERROR: {e}", _empty_image())
+        image_tensors, text_parts, thought_tensors = self._extract_parts(response.json())
 
         out_image = torch.cat(image_tensors, dim=0) if image_tensors else _empty_image()
         out_text = "\n".join(text_parts) if text_parts else ""

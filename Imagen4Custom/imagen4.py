@@ -102,54 +102,49 @@ class Imagen4:
                 "labels": labels,
             }))
 
-        try:
-            token = self.get_access_token()
-            url = (
-                f"https://{gcp_location}-aiplatform.googleapis.com/v1/projects/{gcp_project}"
-                f"/locations/{gcp_location}/publishers/google/models/{model_name}:predict"
-            )
-            headers = {
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json",
-            }
-            params = {
-                "sampleCount": number_of_images,
-                "aspectRatio": aspect_ratio,
-                "guidanceScale": guidance_scale,
-                "personGeneration": person_generation,
-                "safetyFilterLevel": safety_filter_level,
-                "addWatermark": add_watermark,
-                "seed": seed,
-                "sampleImageSize": _IMAGE_SIZE_MAP.get(sample_image_size, "1024"),
-            }
-            if negative_prompt:
-                params["negativePrompt"] = negative_prompt
+        token = self.get_access_token()
+        url = (
+            f"https://{gcp_location}-aiplatform.googleapis.com/v1/projects/{gcp_project}"
+            f"/locations/{gcp_location}/publishers/google/models/{model_name}:predict"
+        )
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }
+        params = {
+            "sampleCount": number_of_images,
+            "aspectRatio": aspect_ratio,
+            "guidanceScale": guidance_scale,
+            "personGeneration": person_generation,
+            "safetyFilterLevel": safety_filter_level,
+            "addWatermark": add_watermark,
+            "seed": seed,
+            "sampleImageSize": _IMAGE_SIZE_MAP.get(sample_image_size, "1024"),
+        }
+        if negative_prompt:
+            params["negativePrompt"] = negative_prompt
 
-            body = {
-                "instances": [{"prompt": prompt}],
-                "parameters": params,
-            }
+        body = {
+            "instances": [{"prompt": prompt}],
+            "parameters": params,
+        }
 
-            response = requests.post(url, headers=headers, json=body, timeout=120)
-            response.raise_for_status()
-            data = response.json()
+        response = requests.post(url, headers=headers, json=body, timeout=120)
+        if not response.ok:
+            raise Exception(f"HTTP {response.status_code}: {response.text}")
 
-            predictions = data.get("predictions", [])
-            if not predictions:
-                raise RuntimeError("The API did not return any images.")
+        predictions = response.json().get("predictions", [])
+        if not predictions:
+            raise RuntimeError("The API did not return any images.")
 
-            tensors = []
-            for pred in predictions:
-                img_bytes = base64.b64decode(pred["bytesBase64Encoded"])
-                pil_img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-                np_image = np.array(pil_img).astype(np.float32) / 255.0
-                tensors.append(torch.from_numpy(np_image))
+        tensors = []
+        for pred in predictions:
+            img_bytes = base64.b64decode(pred["bytesBase64Encoded"])
+            pil_img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+            np_image = np.array(pil_img).astype(np.float32) / 255.0
+            tensors.append(torch.from_numpy(np_image))
 
-            return (torch.stack(tensors, dim=0),)
-
-        except Exception as e:
-            logger.error(f"Image generation failed: {e}")
-            return (torch.zeros((1, 512, 512, 3)),)
+        return (torch.stack(tensors, dim=0),)
 
 
 NODE_CLASS_MAPPINGS = {

@@ -201,13 +201,9 @@ class Veo3VertexAINode(_VeoBase):
         labels_json="",
     ):
         if resolution == "4k" and model_id in ("veo-3.0-generate-001", "veo-3.0-fast-generate-001"):
-            return ("ERROR: 4K resolution is not supported by Veo 3.0 models.",)
+            raise ValueError("4K resolution is not supported by Veo 3.0 models.")
 
-        try:
-            access_token = self.get_access_token()
-        except Exception as e:
-            logger.error(f"Authentication failed: {e}")
-            return (f"ERROR: Authentication failed: {e}",)
+        access_token = self.get_access_token()
 
         labels = self._parse_labels(labels_json)
         if labels:
@@ -245,34 +241,21 @@ class Veo3VertexAINode(_VeoBase):
         payload = {"instances": instances, "parameters": parameters}
         logger.info(f"Sending request → {url}\n{json.dumps(payload, indent=2)}")
 
-        try:
-            resp = requests.post(url, headers=headers, json=payload, timeout=60)
-            resp.raise_for_status()
-            operation_id = resp.json().get("name")
-            if not operation_id:
-                return ("ERROR: No operation ID in submission response.",)
-            logger.info(f"Job started. Operation ID: {operation_id}")
-        except requests.exceptions.HTTPError as e:
-            logger.error(f"HTTP error on submission: {e}\n{e.response.text}")
-            return (f"ERROR: HTTP {e.response.status_code} on submission.",)
-        except Exception as e:
-            logger.error(f"Submission failed: {e}")
-            return (f"ERROR: {e}",)
+        resp = requests.post(url, headers=headers, json=payload, timeout=60)
+        if not resp.ok:
+            raise Exception(f"HTTP {resp.status_code} on submission: {resp.text}")
 
-        try:
-            gcs_uri = self.poll_operation(operation_id, gcp_project, gcp_location, model_id, access_token)
-        except Exception as e:
-            logger.error(str(e))
-            return (f"ERROR: {e}",)
+        operation_id = resp.json().get("name")
+        if not operation_id:
+            raise Exception("No operation ID in submission response.")
+        logger.info(f"Job started. Operation ID: {operation_id}")
 
-        try:
-            output_dir = folder_paths.get_temp_directory()
-            local_path = os.path.join(output_dir, os.path.basename(gcs_uri))
-            self.download_gcs_file(gcs_uri, local_path, access_token)
-            return (local_path,)
-        except Exception as e:
-            logger.error(f"Download failed: {e}")
-            return (f"ERROR: Download failed: {e}",)
+        gcs_uri = self.poll_operation(operation_id, gcp_project, gcp_location, model_id, access_token)
+
+        output_dir = folder_paths.get_temp_directory()
+        local_path = os.path.join(output_dir, os.path.basename(gcs_uri))
+        self.download_gcs_file(gcs_uri, local_path, access_token)
+        return (local_path,)
 
 
 class Veo3FirstLastFrameVertexAINode(_VeoBase):
@@ -322,13 +305,9 @@ class Veo3FirstLastFrameVertexAINode(_VeoBase):
         labels_json="",
     ):
         if resolution == "4k" and "lite" in model_id:
-            return ("ERROR: 4K resolution is not supported by veo-3.1-lite.",)
+            raise ValueError("4K resolution is not supported by veo-3.1-lite.")
 
-        try:
-            access_token = self.get_access_token()
-        except Exception as e:
-            logger.error(f"Authentication failed: {e}")
-            return (f"ERROR: Authentication failed: {e}",)
+        access_token = self.get_access_token()
 
         labels = self._parse_labels(labels_json)
         if labels:
@@ -353,7 +332,7 @@ class Veo3FirstLastFrameVertexAINode(_VeoBase):
             "durationSeconds": duration_seconds,
             "includeRaiReason": True,
             "generateAudio": generate_audio,
-            "enhancePrompt": True,  # always True for Veo 3
+            "enhancePrompt": True,
             "resolution": resolution,
         }
         if negative_prompt and negative_prompt.strip():
@@ -370,34 +349,21 @@ class Veo3FirstLastFrameVertexAINode(_VeoBase):
         payload = {"instances": [instance], "parameters": parameters}
         logger.info(f"Sending request → {url}")
 
-        try:
-            resp = requests.post(url, headers=headers, json=payload, timeout=60)
-            resp.raise_for_status()
-            operation_id = resp.json().get("name")
-            if not operation_id:
-                return ("ERROR: No operation ID in submission response.",)
-            logger.info(f"Job started. Operation ID: {operation_id}")
-        except requests.exceptions.HTTPError as e:
-            logger.error(f"HTTP error on submission: {e}\n{e.response.text}")
-            return (f"ERROR: HTTP {e.response.status_code} on submission.",)
-        except Exception as e:
-            logger.error(f"Submission failed: {e}")
-            return (f"ERROR: {e}",)
+        resp = requests.post(url, headers=headers, json=payload, timeout=60)
+        if not resp.ok:
+            raise Exception(f"HTTP {resp.status_code} on submission: {resp.text}")
 
-        try:
-            gcs_uri = self.poll_operation(operation_id, gcp_project, gcp_location, model_id, access_token)
-        except Exception as e:
-            logger.error(str(e))
-            return (f"ERROR: {e}",)
+        operation_id = resp.json().get("name")
+        if not operation_id:
+            raise Exception("No operation ID in submission response.")
+        logger.info(f"Job started. Operation ID: {operation_id}")
 
-        try:
-            output_dir = folder_paths.get_temp_directory()
-            local_path = os.path.join(output_dir, os.path.basename(gcs_uri))
-            self.download_gcs_file(gcs_uri, local_path, access_token)
-            return (local_path,)
-        except Exception as e:
-            logger.error(f"Download failed: {e}")
-            return (f"ERROR: Download failed: {e}",)
+        gcs_uri = self.poll_operation(operation_id, gcp_project, gcp_location, model_id, access_token)
+
+        output_dir = folder_paths.get_temp_directory()
+        local_path = os.path.join(output_dir, os.path.basename(gcs_uri))
+        self.download_gcs_file(gcs_uri, local_path, access_token)
+        return (local_path,)
 
 
 NODE_CLASS_MAPPINGS = {
