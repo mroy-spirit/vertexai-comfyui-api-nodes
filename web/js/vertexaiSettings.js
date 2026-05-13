@@ -30,7 +30,7 @@ const SETTINGS = [
         name: "Extra Labels (JSON)",
         key: "extra_labels",
         widget: null,   // server-side only — not injected into node widgets
-        tooltip: 'Additional Cloud Logging labels applied to every node, e.g. {"env":"prod"}',
+        tooltip: 'Cloud Logging labels applied to every node. Pre-filled with app=comfyui and user=<your OAuth email>; you can add your own, e.g. {"app":"comfyui","user":"you@example.com","env":"prod"}',
         defaultValue: "{}",
     },
 ];
