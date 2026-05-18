@@ -39,6 +39,12 @@ _VEO31_MODELS = [
     "veo-3.1-lite-generate-001",
 ]
 
+_VEO2_MODELS = [
+    "veo-2.0-generate-001",
+    "veo-2.0-generate-exp",
+    "veo-2.0-generate-preview",
+]
+
 
 class _VeoBase:
     """Shared auth, image conversion, label logging, polling and download helpers."""
@@ -62,6 +68,15 @@ class _VeoBase:
         pil_image = Image.fromarray(np_image)
         buf = BytesIO()
         pil_image.save(buf, format="PNG")
+        return base64.b64encode(buf.getvalue()).decode("utf-8")
+
+    def _mask_to_base64(self, mask: torch.Tensor) -> str:
+        """ComfyUI MASK tensor [B, H, W] float[0,1] → base64-encoded 8-bit PNG (white = region to fill)."""
+        arr = mask[0] if mask.dim() == 3 else mask
+        np_mask = (arr.numpy() * 255).clip(0, 255).astype(np.uint8)
+        pil_mask = Image.fromarray(np_mask, mode="L")
+        buf = BytesIO()
+        pil_mask.save(buf, format="PNG")
         return base64.b64encode(buf.getvalue()).decode("utf-8")
 
     def _log_labels(self, labels: dict, model_id: str, gcp_project: str, gcp_location: str):
@@ -143,6 +158,46 @@ class _VeoBase:
             raise Exception(f"Operation done but no GCS URI in response: {response_data}")
 
         raise Exception("Polling timed out after 15 minutes.")
+
+    def _submit_and_collect(
+        self,
+        instance: dict,
+        parameters: dict,
+        gcp_project: str,
+        gcp_location: str,
+        model_id: str,
+        access_token: str,
+    ) -> tuple:
+        """Submit a predictLongRunning job, poll to completion, download the result.
+        Returns (local_video_path, gcs_uri). Payload bodies are not dumped to logs
+        because most modes carry base64 image/mask blobs."""
+        url = (
+            f"{self._api_host(gcp_location)}"
+            f"/v1/projects/{gcp_project}/locations/{gcp_location}"
+            f"/publishers/google/models/{model_id}:predictLongRunning"
+        )
+        headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
+        payload = {"instances": [instance], "parameters": parameters}
+        logger.info(
+            f"Sending request → {url} (instance keys: {sorted(instance.keys())}, "
+            f"parameter keys: {sorted(parameters.keys())})"
+        )
+
+        resp = requests.post(url, headers=headers, json=payload, timeout=60)
+        if not resp.ok:
+            raise Exception(f"HTTP {resp.status_code} on submission: {resp.text}")
+
+        operation_id = resp.json().get("name")
+        if not operation_id:
+            raise Exception("No operation ID in submission response.")
+        logger.info(f"Job started. Operation ID: {operation_id}")
+
+        gcs_uri = self.poll_operation(operation_id, gcp_project, gcp_location, model_id, access_token)
+
+        output_dir = folder_paths.get_output_directory()
+        local_path = os.path.join(output_dir, os.path.basename(gcs_uri))
+        self.download_gcs_file(gcs_uri, local_path, access_token)
+        return (local_path, gcs_uri)
 
 
 class Veo3VertexAINode(_VeoBase):
@@ -353,11 +408,338 @@ class Veo3FirstLastFrameVertexAINode(_VeoBase):
         return (local_path, gcs_uri)
 
 
+class Veo3ExtendVertexAINode(_VeoBase):
+    """Extend an existing Veo-generated MP4 by ~7 s. Veo 3.1 only.
+    Input video MUST be a gs:// URI; the API does not accept base64 video."""
+
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "gcp_project": ("STRING", {"default": os.environ.get("PROJECT_ID", "vertex-ai-project-id")}),
+                "gcp_location": ("STRING", {"default": os.environ.get("LOCATION", "us-central1")}),
+                "prompt": ("STRING", {"multiline": True, "default": ""}),
+                "storage_uri": ("STRING", {"default": "gs://your-gcs-bucket/video-output/"}),
+                "input_video_gcs_uri": ("STRING", {"default": "", "tooltip": "gs:// URI of a Veo-generated MP4 to extend"}),
+            },
+            "optional": {
+                "model_id": (_VEO31_MODELS, {"default": "veo-3.1-generate-001"}),
+                "aspect_ratio": (["16:9", "9:16"],),
+                "resolution": (["720p", "1080p", "4k"],),
+                "generate_audio": ("BOOLEAN", {"default": True}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 0x7FFFFFFF}),
+                "negative_prompt": ("STRING", {"multiline": True, "default": ""}),
+                "enhance_prompt": ("BOOLEAN", {"default": True}),
+                "custom_label_key": ("STRING", {"default": "", "tooltip": "Optional label key, e.g. workflow"}),
+                "custom_label_value": ("STRING", {"default": "", "tooltip": "Optional label value, e.g. product-shot"}),
+            },
+        }
+
+    RETURN_TYPES = ("STRING", "STRING")
+    RETURN_NAMES = ("local_video_path", "gcs_uri")
+    FUNCTION = "execute"
+    CATEGORY = "VertexAI"
+
+    def execute(
+        self,
+        gcp_project, gcp_location, prompt, storage_uri, input_video_gcs_uri,
+        model_id="veo-3.1-generate-001",
+        aspect_ratio="16:9",
+        resolution="720p",
+        generate_audio=True,
+        seed=0,
+        negative_prompt="",
+        enhance_prompt=True,
+        custom_label_key="",
+        custom_label_value="",
+    ):
+        if not input_video_gcs_uri or not input_video_gcs_uri.startswith("gs://"):
+            raise ValueError("input_video_gcs_uri must be a gs:// URI (the Veo API does not accept base64 video).")
+        if resolution == "4k" and "lite" in model_id:
+            raise ValueError("4K resolution is not supported by veo-3.1-lite.")
+
+        access_token = self.get_access_token()
+        self._log_labels(build_labels(custom_label_key, custom_label_value), model_id, gcp_project, gcp_location)
+
+        instance = {
+            "prompt": prompt,
+            "video": {"gcsUri": input_video_gcs_uri, "mimeType": "video/mp4"},
+        }
+        parameters = {
+            "storageUri": storage_uri,
+            "aspectRatio": aspect_ratio,
+            "sampleCount": 1,
+            "includeRaiReason": True,
+            "generateAudio": generate_audio,
+            "enhancePrompt": enhance_prompt,
+            "resolution": resolution,
+        }
+        if negative_prompt and negative_prompt.strip():
+            parameters["negativePrompt"] = negative_prompt
+        if seed > 0:
+            parameters["seed"] = seed
+
+        return self._submit_and_collect(instance, parameters, gcp_project, gcp_location, model_id, access_token)
+
+
+class Veo3ReferenceSubjectVertexAINode(_VeoBase):
+    """Generate a video conditioned on 1-3 subject reference images. Veo 3.1.
+    Duration is locked to 8 s by the Vertex API when referenceImages is set."""
+
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "gcp_project": ("STRING", {"default": os.environ.get("PROJECT_ID", "vertex-ai-project-id")}),
+                "gcp_location": ("STRING", {"default": os.environ.get("LOCATION", "us-central1")}),
+                "prompt": ("STRING", {"multiline": True, "default": ""}),
+                "storage_uri": ("STRING", {"default": "gs://your-gcs-bucket/video-output/"}),
+                "reference_image_1": ("IMAGE",),
+            },
+            "optional": {
+                "reference_image_2": ("IMAGE",),
+                "reference_image_3": ("IMAGE",),
+                "model_id": (_VEO31_MODELS, {"default": "veo-3.1-generate-001"}),
+                "aspect_ratio": (["16:9", "9:16"],),
+                "resolution": (["720p", "1080p", "4k"],),
+                "generate_audio": ("BOOLEAN", {"default": True}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 0x7FFFFFFF}),
+                "negative_prompt": ("STRING", {"multiline": True, "default": ""}),
+                "enhance_prompt": ("BOOLEAN", {"default": True}),
+                "custom_label_key": ("STRING", {"default": "", "tooltip": "Optional label key, e.g. workflow"}),
+                "custom_label_value": ("STRING", {"default": "", "tooltip": "Optional label value, e.g. product-shot"}),
+            },
+        }
+
+    RETURN_TYPES = ("STRING", "STRING")
+    RETURN_NAMES = ("local_video_path", "gcs_uri")
+    FUNCTION = "execute"
+    CATEGORY = "VertexAI"
+
+    def execute(
+        self,
+        gcp_project, gcp_location, prompt, storage_uri, reference_image_1,
+        reference_image_2=None,
+        reference_image_3=None,
+        model_id="veo-3.1-generate-001",
+        aspect_ratio="16:9",
+        resolution="720p",
+        generate_audio=True,
+        seed=0,
+        negative_prompt="",
+        enhance_prompt=True,
+        custom_label_key="",
+        custom_label_value="",
+    ):
+        if resolution == "4k" and "lite" in model_id:
+            raise ValueError("4K resolution is not supported by veo-3.1-lite.")
+
+        access_token = self.get_access_token()
+        self._log_labels(build_labels(custom_label_key, custom_label_value), model_id, gcp_project, gcp_location)
+
+        reference_images = []
+        for img in (reference_image_1, reference_image_2, reference_image_3):
+            if img is None:
+                continue
+            reference_images.append({
+                "image": {
+                    "bytesBase64Encoded": self._tensor_to_base64(img[0]),
+                    "mimeType": "image/png",
+                },
+                "referenceType": "asset",
+            })
+
+        instance = {"prompt": prompt, "referenceImages": reference_images}
+        parameters = {
+            "storageUri": storage_uri,
+            "aspectRatio": aspect_ratio,
+            "sampleCount": 1,
+            "durationSeconds": 8,
+            "includeRaiReason": True,
+            "generateAudio": generate_audio,
+            "enhancePrompt": enhance_prompt,
+            "resolution": resolution,
+        }
+        if negative_prompt and negative_prompt.strip():
+            parameters["negativePrompt"] = negative_prompt
+        if seed > 0:
+            parameters["seed"] = seed
+
+        return self._submit_and_collect(instance, parameters, gcp_project, gcp_location, model_id, access_token)
+
+
+class VeoReferenceStyleVertexAINode(_VeoBase):
+    """Generate a video in the style of a single reference image. Veo 2 only —
+    Veo 3.1 does not support referenceImages.style. Duration locked to 8 s."""
+
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "gcp_project": ("STRING", {"default": os.environ.get("PROJECT_ID", "vertex-ai-project-id")}),
+                "gcp_location": ("STRING", {"default": os.environ.get("LOCATION", "us-central1")}),
+                "prompt": ("STRING", {"multiline": True, "default": ""}),
+                "storage_uri": ("STRING", {"default": "gs://your-gcs-bucket/video-output/"}),
+                "style_reference_image": ("IMAGE",),
+            },
+            "optional": {
+                "model_id": (_VEO2_MODELS, {"default": "veo-2.0-generate-001"}),
+                "aspect_ratio": (["16:9", "9:16"],),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 0x7FFFFFFF}),
+                "negative_prompt": ("STRING", {"multiline": True, "default": ""}),
+                "enhance_prompt": ("BOOLEAN", {"default": True}),
+                "custom_label_key": ("STRING", {"default": "", "tooltip": "Optional label key, e.g. workflow"}),
+                "custom_label_value": ("STRING", {"default": "", "tooltip": "Optional label value, e.g. product-shot"}),
+            },
+        }
+
+    RETURN_TYPES = ("STRING", "STRING")
+    RETURN_NAMES = ("local_video_path", "gcs_uri")
+    FUNCTION = "execute"
+    CATEGORY = "VertexAI"
+
+    def execute(
+        self,
+        gcp_project, gcp_location, prompt, storage_uri, style_reference_image,
+        model_id="veo-2.0-generate-001",
+        aspect_ratio="16:9",
+        seed=0,
+        negative_prompt="",
+        enhance_prompt=True,
+        custom_label_key="",
+        custom_label_value="",
+    ):
+        access_token = self.get_access_token()
+        self._log_labels(build_labels(custom_label_key, custom_label_value), model_id, gcp_project, gcp_location)
+
+        instance = {
+            "prompt": prompt,
+            "referenceImages": [{
+                "image": {
+                    "bytesBase64Encoded": self._tensor_to_base64(style_reference_image[0]),
+                    "mimeType": "image/png",
+                },
+                "referenceType": "style",
+            }],
+        }
+        parameters = {
+            "storageUri": storage_uri,
+            "aspectRatio": aspect_ratio,
+            "sampleCount": 1,
+            "durationSeconds": 8,
+            "includeRaiReason": True,
+            "enhancePrompt": enhance_prompt,
+        }
+        if negative_prompt and negative_prompt.strip():
+            parameters["negativePrompt"] = negative_prompt
+        if seed > 0:
+            parameters["seed"] = seed
+
+        return self._submit_and_collect(instance, parameters, gcp_project, gcp_location, model_id, access_token)
+
+
+class VeoInpaintInsertVertexAINode(_VeoBase):
+    """Insert an object into an existing video region. Veo 2 only.
+    Video input is gs:// URI; mask is a ComfyUI MASK tensor (white = region to fill)."""
+
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "gcp_project": ("STRING", {"default": os.environ.get("PROJECT_ID", "vertex-ai-project-id")}),
+                "gcp_location": ("STRING", {"default": os.environ.get("LOCATION", "us-central1")}),
+                "prompt": ("STRING", {"multiline": True, "default": ""}),
+                "storage_uri": ("STRING", {"default": "gs://your-gcs-bucket/video-output/"}),
+                "input_video_gcs_uri": ("STRING", {"default": "", "tooltip": "gs:// URI of the MP4 to edit"}),
+                "mask": ("MASK",),
+            },
+            "optional": {
+                "model_id": (_VEO2_MODELS, {"default": "veo-2.0-generate-001"}),
+                "aspect_ratio": (["16:9", "9:16"],),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 0x7FFFFFFF}),
+                "negative_prompt": ("STRING", {"multiline": True, "default": ""}),
+                "enhance_prompt": ("BOOLEAN", {"default": True}),
+                "custom_label_key": ("STRING", {"default": "", "tooltip": "Optional label key, e.g. workflow"}),
+                "custom_label_value": ("STRING", {"default": "", "tooltip": "Optional label value, e.g. product-shot"}),
+            },
+        }
+
+    RETURN_TYPES = ("STRING", "STRING")
+    RETURN_NAMES = ("local_video_path", "gcs_uri")
+    FUNCTION = "execute"
+    CATEGORY = "VertexAI"
+
+    _MASK_MODE = "insert"
+
+    def execute(
+        self,
+        gcp_project, gcp_location, prompt, storage_uri, input_video_gcs_uri, mask,
+        model_id="veo-2.0-generate-001",
+        aspect_ratio="16:9",
+        seed=0,
+        negative_prompt="",
+        enhance_prompt=True,
+        custom_label_key="",
+        custom_label_value="",
+    ):
+        if not input_video_gcs_uri or not input_video_gcs_uri.startswith("gs://"):
+            raise ValueError("input_video_gcs_uri must be a gs:// URI (the Veo API does not accept base64 video).")
+
+        access_token = self.get_access_token()
+        self._log_labels(build_labels(custom_label_key, custom_label_value), model_id, gcp_project, gcp_location)
+
+        instance = {
+            "prompt": prompt,
+            "video": {"gcsUri": input_video_gcs_uri, "mimeType": "video/mp4"},
+            "mask": {
+                "bytesBase64Encoded": self._mask_to_base64(mask),
+                "mimeType": "image/png",
+                "maskMode": self._MASK_MODE,
+            },
+        }
+        parameters = {
+            "storageUri": storage_uri,
+            "aspectRatio": aspect_ratio,
+            "sampleCount": 1,
+            "includeRaiReason": True,
+            "enhancePrompt": enhance_prompt,
+        }
+        if negative_prompt and negative_prompt.strip():
+            parameters["negativePrompt"] = negative_prompt
+        if seed > 0:
+            parameters["seed"] = seed
+
+        return self._submit_and_collect(instance, parameters, gcp_project, gcp_location, model_id, access_token)
+
+
+class VeoInpaintRemoveVertexAINode(VeoInpaintInsertVertexAINode):
+    """Remove an object from an existing video region. Veo 2 only.
+    Same I/O as the insert node but with maskMode='remove'; prompt is optional."""
+
+    _MASK_MODE = "remove"
+
+    @classmethod
+    def INPUT_TYPES(s):
+        spec = super().INPUT_TYPES()
+        spec["required"]["prompt"] = ("STRING", {"multiline": True, "default": ""})
+        return spec
+
+
 NODE_CLASS_MAPPINGS = {
     "Veo3VertexAINode": Veo3VertexAINode,
     "Veo3FirstLastFrameVertexAINode": Veo3FirstLastFrameVertexAINode,
+    "Veo3ExtendVertexAINode": Veo3ExtendVertexAINode,
+    "Veo3ReferenceSubjectVertexAINode": Veo3ReferenceSubjectVertexAINode,
+    "VeoReferenceStyleVertexAINode": VeoReferenceStyleVertexAINode,
+    "VeoInpaintInsertVertexAINode": VeoInpaintInsertVertexAINode,
+    "VeoInpaintRemoveVertexAINode": VeoInpaintRemoveVertexAINode,
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
     "Veo3VertexAINode": "Veo3 Video Generator (Vertex AI)",
     "Veo3FirstLastFrameVertexAINode": "Veo3 First-Last Frame (Vertex AI)",
+    "Veo3ExtendVertexAINode": "Veo3 Video Extension (Vertex AI)",
+    "Veo3ReferenceSubjectVertexAINode": "Veo3 Reference Subject (Vertex AI)",
+    "VeoReferenceStyleVertexAINode": "Veo Reference Style (Vertex AI, Veo 2)",
+    "VeoInpaintInsertVertexAINode": "Veo Inpaint Insert (Vertex AI, Veo 2)",
+    "VeoInpaintRemoveVertexAINode": "Veo Inpaint Remove (Vertex AI, Veo 2)",
 }

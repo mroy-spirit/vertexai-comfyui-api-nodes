@@ -21,6 +21,11 @@ This project is based on and adapted from:
 | **Imagen4 Image Generator (Vertex AI)** | VertexAI | Generate images with Imagen 4 via Vertex AI REST API |
 | **Veo3 Video Generator (Vertex AI)** | VertexAI | Generate videos from text or image with Veo 3.x models |
 | **Veo3 First-Last Frame (Vertex AI)** | VertexAI | Interpolate video between a first and last frame |
+| **Veo3 Video Extension (Vertex AI)** | VertexAI | Extend an existing Veo-generated MP4 by ~7 s (Veo 3.1) |
+| **Veo3 Reference Subject (Vertex AI)** | VertexAI | Generate a video conditioned on 1–3 subject reference images (Veo 3.1) |
+| **Veo Reference Style (Vertex AI, Veo 2)** | VertexAI | Generate a video in the style of a single reference image (Veo 2 only) |
+| **Veo Inpaint Insert (Vertex AI, Veo 2)** | VertexAI | Insert an object into a masked region of an existing video (Veo 2 only) |
+| **Veo Inpaint Remove (Vertex AI, Veo 2)** | VertexAI | Remove an object from a masked region of an existing video (Veo 2 only) |
 | **Gemini (Vertex AI)** | VertexAI | Generate images (and optionally text) with Gemini image models |
 | **Gemini Text (Vertex AI)** | VertexAI | Generate text with Gemini models; supports optional image/video inputs |
 
@@ -159,6 +164,130 @@ Generates a video that transitions between a first and last frame. Requires Veo 
 | `seed` | INT | | Reproducibility seed (0 = random) |
 | `negative_prompt` | STRING | | What to avoid |
 | `labels_json` | STRING | | JSON labels for BigQuery tracking |
+
+**Outputs:** `STRING` (local file path), `STRING` (GCS URI `gs://...`)
+
+---
+
+### Veo3 Video Extension (Vertex AI)
+
+Extends an existing Veo-generated MP4 by ~7 seconds. Chain multiple extension nodes to build longer videos (up to ~141 s total). The input video must already be Veo-generated and must be a `gs://` URI — the API does not accept base64 video, so the easiest pattern is to wire the `gcs_uri` output of a previous Veo node into `input_video_gcs_uri`. Veo 3.1 only.
+
+| Input | Type | Required | Description |
+|---|---|---|---|
+| `gcp_project` | STRING | ✅ | GCP project ID |
+| `gcp_location` | STRING | ✅ | Region |
+| `prompt` | STRING | ✅ | What should happen in the extended segment |
+| `storage_uri` | STRING | ✅ | GCS output path |
+| `input_video_gcs_uri` | STRING | ✅ | `gs://` URI of the Veo-generated MP4 to extend |
+| `model_id` | COMBO | | `veo-3.1-generate-001`, `veo-3.1-fast-generate-001`, `veo-3.1-lite-generate-001` |
+| `aspect_ratio` | COMBO | | `16:9` or `9:16` |
+| `resolution` | COMBO | | `720p`, `1080p`, `4k` (not available on lite) |
+| `generate_audio` | BOOLEAN | | Generate audio track |
+| `seed` | INT | | Reproducibility seed (0 = random) |
+| `negative_prompt` | STRING | | What to avoid |
+| `enhance_prompt` | BOOLEAN | | AI prompt enhancement |
+| `custom_label_key` / `custom_label_value` | STRING | | Optional per-node label for BigQuery tracking |
+
+**Note:** Output length is fixed at 7 s per call by the API, so this node has no `duration_seconds` input.
+
+**Outputs:** `STRING` (local file path), `STRING` (GCS URI `gs://...`)
+
+---
+
+### Veo3 Reference Subject (Vertex AI)
+
+Generates an 8-second video conditioned on 1–3 subject reference images (people, objects, etc.). Veo 3.1.
+
+| Input | Type | Required | Description |
+|---|---|---|---|
+| `gcp_project` | STRING | ✅ | GCP project ID |
+| `gcp_location` | STRING | ✅ | Region |
+| `prompt` | STRING | ✅ | Video description referring to the subject |
+| `storage_uri` | STRING | ✅ | GCS output path |
+| `reference_image_1` | IMAGE | ✅ | First subject reference image |
+| `reference_image_2` | IMAGE | | Second subject reference (optional) |
+| `reference_image_3` | IMAGE | | Third subject reference (optional) |
+| `model_id` | COMBO | | `veo-3.1-generate-001`, `veo-3.1-fast-generate-001`, `veo-3.1-lite-generate-001` |
+| `aspect_ratio` | COMBO | | `16:9` or `9:16` |
+| `resolution` | COMBO | | `720p`, `1080p`, `4k` (not available on lite) |
+| `generate_audio` | BOOLEAN | | Generate audio track |
+| `seed` | INT | | Reproducibility seed (0 = random) |
+| `negative_prompt` | STRING | | What to avoid |
+| `enhance_prompt` | BOOLEAN | | AI prompt enhancement |
+| `custom_label_key` / `custom_label_value` | STRING | | Optional per-node label for BigQuery tracking |
+
+**Note:** Duration is locked to 8 s by the Vertex API whenever `referenceImages` is set, so this node has no `duration_seconds` input.
+
+**Outputs:** `STRING` (local file path), `STRING` (GCS URI `gs://...`)
+
+---
+
+### Veo Reference Style (Vertex AI, Veo 2)
+
+Generates an 8-second video in the style of a single reference image. **Veo 2 only** — Veo 3.1 does not support style references.
+
+| Input | Type | Required | Description |
+|---|---|---|---|
+| `gcp_project` | STRING | ✅ | GCP project ID |
+| `gcp_location` | STRING | ✅ | Region |
+| `prompt` | STRING | ✅ | Video description |
+| `storage_uri` | STRING | ✅ | GCS output path |
+| `style_reference_image` | IMAGE | ✅ | Style reference (a single image) |
+| `model_id` | COMBO | | `veo-2.0-generate-001`, `veo-2.0-generate-exp`, `veo-2.0-generate-preview` |
+| `aspect_ratio` | COMBO | | `16:9` or `9:16` |
+| `seed` | INT | | Reproducibility seed (0 = random) |
+| `negative_prompt` | STRING | | What to avoid |
+| `enhance_prompt` | BOOLEAN | | AI prompt enhancement |
+| `custom_label_key` / `custom_label_value` | STRING | | Optional per-node label for BigQuery tracking |
+
+**Note:** Veo 2 does not support `generate_audio`, `resolution`, or custom `duration_seconds` (locked to 8 s).
+
+**Outputs:** `STRING` (local file path), `STRING` (GCS URI `gs://...`)
+
+---
+
+### Veo Inpaint Insert (Vertex AI, Veo 2)
+
+Inserts an object described by the prompt into the white region of a MASK over an existing video. **Veo 2 only.** The input video must be a `gs://` URI; the mask is a standard ComfyUI MASK tensor (white = region to fill).
+
+| Input | Type | Required | Description |
+|---|---|---|---|
+| `gcp_project` | STRING | ✅ | GCP project ID |
+| `gcp_location` | STRING | ✅ | Region |
+| `prompt` | STRING | ✅ | What to insert into the masked region |
+| `storage_uri` | STRING | ✅ | GCS output path |
+| `input_video_gcs_uri` | STRING | ✅ | `gs://` URI of the MP4 to edit |
+| `mask` | MASK | ✅ | ComfyUI mask, white = region to fill |
+| `model_id` | COMBO | | `veo-2.0-generate-001`, `veo-2.0-generate-exp`, `veo-2.0-generate-preview` |
+| `aspect_ratio` | COMBO | | `16:9` or `9:16` |
+| `seed` | INT | | Reproducibility seed (0 = random) |
+| `negative_prompt` | STRING | | What to avoid |
+| `enhance_prompt` | BOOLEAN | | AI prompt enhancement |
+| `custom_label_key` / `custom_label_value` | STRING | | Optional per-node label for BigQuery tracking |
+
+**Outputs:** `STRING` (local file path), `STRING` (GCS URI `gs://...`)
+
+---
+
+### Veo Inpaint Remove (Vertex AI, Veo 2)
+
+Removes content from the white region of a MASK over an existing video and fills it in. **Veo 2 only.** Identical inputs to the Insert node, but `prompt` is optional — removal doesn't always need one.
+
+| Input | Type | Required | Description |
+|---|---|---|---|
+| `gcp_project` | STRING | ✅ | GCP project ID |
+| `gcp_location` | STRING | ✅ | Region |
+| `prompt` | STRING | | Optional hint for what should appear in the filled region |
+| `storage_uri` | STRING | ✅ | GCS output path |
+| `input_video_gcs_uri` | STRING | ✅ | `gs://` URI of the MP4 to edit |
+| `mask` | MASK | ✅ | ComfyUI mask, white = region to remove |
+| `model_id` | COMBO | | `veo-2.0-generate-001`, `veo-2.0-generate-exp`, `veo-2.0-generate-preview` |
+| `aspect_ratio` | COMBO | | `16:9` or `9:16` |
+| `seed` | INT | | Reproducibility seed (0 = random) |
+| `negative_prompt` | STRING | | What to avoid |
+| `enhance_prompt` | BOOLEAN | | AI prompt enhancement |
+| `custom_label_key` / `custom_label_value` | STRING | | Optional per-node label for BigQuery tracking |
 
 **Outputs:** `STRING` (local file path), `STRING` (GCS URI `gs://...`)
 
