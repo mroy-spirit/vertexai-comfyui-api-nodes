@@ -1,8 +1,21 @@
 import json
 import logging
+import sys
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+
+def log_event(payload: dict) -> None:
+    """Write a structured JSON event directly to stdout.
+
+    The Ops Agent on GCE detects JSON objects on individual stdout lines and
+    ingests them as jsonPayload (not textPayload), making all fields—including
+    `labels`—queryable as proper columns in a BigQuery Cloud Logging export.
+    Python's standard logger prefixes lines with 'LEVEL:module:', which breaks
+    JSON detection and forces textPayload, so we bypass it here.
+    """
+    print(json.dumps({"severity": "INFO", **payload}), file=sys.stdout, flush=True)
 
 _UNSET = object()
 _cached_email: object = _UNSET

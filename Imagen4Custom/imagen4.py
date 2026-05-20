@@ -11,7 +11,7 @@ import requests
 import torch
 from PIL import Image
 
-from ..common import build_labels
+from ..common import build_labels, log_event
 
 logger = logging.getLogger(__name__)
 
@@ -80,13 +80,13 @@ class Imagen4:
         custom_label_value="",
     ):
         labels = build_labels(custom_label_key, custom_label_value)
-        logger.info(json.dumps({
+        log_event({
             "event": "imagen4_vertex_request",
             "model": model_name,
             "gcp_project": gcp_project,
             "gcp_location": gcp_location,
             "labels": labels,
-        }))
+        })
 
         token = self.get_access_token()
         host = (

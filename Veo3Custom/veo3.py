@@ -21,7 +21,7 @@ import google.auth.transport.requests
 
 import folder_paths
 
-from ..common import build_labels
+from ..common import build_labels, log_event
 
 logger = logging.getLogger(__name__)
 
@@ -80,13 +80,13 @@ class _VeoBase:
         return base64.b64encode(buf.getvalue()).decode("utf-8")
 
     def _log_labels(self, labels: dict, model_id: str, gcp_project: str, gcp_location: str):
-        logger.info(json.dumps({
+        log_event({
             "event": "veo_vertex_request",
             "model": model_id,
             "gcp_project": gcp_project,
             "gcp_location": gcp_location,
             "labels": labels,
-        }))
+        })
 
     def download_gcs_file(self, gcs_uri: str, local_path: str, access_token: str):
         """Download a GCS object via the storage JSON API (no gcloud CLI needed)."""

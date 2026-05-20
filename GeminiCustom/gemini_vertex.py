@@ -19,7 +19,7 @@ from PIL import Image
 import google.auth
 import google.auth.transport.requests
 
-from ..common import build_labels
+from ..common import build_labels, log_event
 
 logger = logging.getLogger(__name__)
 
@@ -186,9 +186,11 @@ class GeminiVertexAINode:
         if thinking_level == "HIGH":
             generation_config["thinkingConfig"] = {"thinkingLevel": "HIGH"}
 
+        labels = build_labels(custom_label_key, custom_label_value)
         body: dict = {
             "contents": [{"role": "user", "parts": parts}],
             "generationConfig": generation_config,
+            "labels": labels,
         }
 
         if system_prompt and system_prompt.strip():
@@ -197,13 +199,13 @@ class GeminiVertexAINode:
                 "parts": [{"text": system_prompt}],
             }
 
-        logger.info(json.dumps({
+        log_event({
             "event": "gemini_vertex_request",
             "model": model,
             "gcp_project": gcp_project,
             "gcp_location": gcp_location,
-            "labels": build_labels(custom_label_key, custom_label_value),
-        }))
+            "labels": labels,
+        })
 
         host = (
             "https://aiplatform.googleapis.com"

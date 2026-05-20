@@ -16,7 +16,7 @@ from google.genai.types import (
     RawReferenceImage,
 )
 
-from ..common import build_labels as _build_labels
+from ..common import build_labels as _build_labels, log_event as _log_event
 
 logger = logging.getLogger(__name__)
 
@@ -46,13 +46,13 @@ class _Imagen4EditBase:
         return _build_labels(custom_label_key, custom_label_value)
 
     def _log_labels(self, labels: dict, model: str, gcp_project: str, gcp_location: str, event: str):
-        logger.info(json.dumps({
+        _log_event({
             "event": event,
             "model": model,
             "gcp_project": gcp_project,
             "gcp_location": gcp_location,
             "labels": labels,
-        }))
+        })
 
     # ------------------------------------------------------------------ #
     # Image conversion                                                     #

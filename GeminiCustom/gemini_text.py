@@ -11,7 +11,7 @@ from PIL import Image as PIL_Image
 from google import genai
 from google.genai import types as genai_types
 
-from ..common import build_labels
+from ..common import build_labels, log_event
 
 logger = logging.getLogger(__name__)
 
@@ -61,13 +61,14 @@ class GeminiTextVertexAINode:
         custom_label_key: str = "",
         custom_label_value: str = "",
     ):
-        logger.info(json.dumps({
+        labels = build_labels(custom_label_key, custom_label_value)
+        log_event({
             "event": "gemini_text_request",
             "model": model,
             "gcp_project": gcp_project,
             "gcp_location": gcp_location,
-            "labels": build_labels(custom_label_key, custom_label_value),
-        }))
+            "labels": labels,
+        })
 
         client = genai.Client(vertexai=True, project=gcp_project, location=gcp_location)
 
@@ -94,6 +95,7 @@ class GeminiTextVertexAINode:
             top_k=top_k,
             max_output_tokens=max_output_tokens,
             stop_sequences=stops or None,
+            labels=labels,
         )
 
         logger.info(f"Sending text request → model={model}")
