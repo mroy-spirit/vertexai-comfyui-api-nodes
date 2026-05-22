@@ -23,8 +23,8 @@ NODE_CLASS_MAPPINGS = {}
 NODE_DISPLAY_NAME_MAPPINGS = {}
 
 _SUBPACKAGES = (
-    "Imagen4Custom", "Veo3Custom", "GeminiCustom",
-    "VideoPreviewCustom", "Imagen4EditCustom", "UtilsCustom",
+    "Veo3Custom", "GeminiCustom",
+    "VideoPreviewCustom", "UtilsCustom",
 )
 
 for _pkg_name in _SUBPACKAGES:

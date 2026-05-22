@@ -1,5 +1,0 @@
-google-auth[compute]
-requests
-Pillow
-numpy
-torch

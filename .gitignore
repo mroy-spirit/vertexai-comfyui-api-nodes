@@ -70,3 +70,6 @@ PROJET_MAP.md
 Gemini/
 Veo/
 vertexai_nodes/
+
+# Archived nodes (removed from deployment, kept locally only)
+_archive/
