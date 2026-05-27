@@ -151,30 +151,22 @@ def _detect_project_id() -> Optional[str]:
     return None
 
 
-_RESERVED_LABEL_KEYS = ("app", "user")
+_RESERVED_LABEL_KEYS = ("app_id", "user_id", "project_id")
 
 
-def _merge_reserved_labels(stored_json: Optional[str]) -> str:
-    """Always inject the reserved labels (app, user) into the extra_labels
-    JSON so the Settings panel reflects the *current* OAuth user. Any stored
-    extras (e.g. env=prod) are preserved and kept alongside."""
-    try:
-        parsed = json.loads(stored_json or "{}")
-        if not isinstance(parsed, dict):
-            parsed = {}
-    except Exception:
-        parsed = {}
-
-    parsed["app"] = "comfyui"
+def _get_reserved_labels(gcp_project: str = "") -> dict:
+    """Return current reserved label values for display in the Settings panel."""
+    labels: dict = {"app_id": "comfyui"}
     try:
         from .oauth_user import get_oauth_email
         email = get_oauth_email()
         if email:
-            parsed["user"] = email
+            labels["user_id"] = email
     except Exception:
         pass
-
-    return json.dumps(parsed)
+    if gcp_project:
+        labels["project_id"] = gcp_project
+    return labels
 
 
 def get_settings() -> dict:
@@ -185,10 +177,6 @@ def get_settings() -> dict:
         detected = _detect_project_id()
         if detected:
             merged["gcp_project"] = detected
-
-    # Re-inject reserved labels on every read so the displayed user stays
-    # in sync with whoever is currently authenticated.
-    merged["extra_labels"] = _merge_reserved_labels(merged.get("extra_labels"))
 
     return merged
 
@@ -217,7 +205,12 @@ def register(prompt_server) -> None:
             capture_email_from_request(request)
         except Exception:
             pass
-        return web.json_response({**get_settings(), "auth_status": get_auth_status()})
+        settings = get_settings()
+        return web.json_response({
+            **settings,
+            "auth_status": get_auth_status(),
+            "reserved_labels": _get_reserved_labels(settings.get("gcp_project", "")),
+        })
 
     @prompt_server.routes.post("/vertexai/settings")
     async def post_handler(request: web.Request) -> web.Response:
@@ -225,8 +218,7 @@ def register(prompt_server) -> None:
             data = await request.json()
         except Exception:
             return web.json_response({"error": "Invalid JSON"}, status=400)
-        # Strip reserved label keys so the on-disk file never contains a
-        # stale OAuth email; the reserved labels are re-injected on read.
+        # Strip reserved label keys so they are never persisted in extra_labels.
         if "extra_labels" in data and isinstance(data["extra_labels"], str):
             data["extra_labels"] = _strip_reserved_labels(data["extra_labels"])
         stored = _read_stored()
@@ -238,7 +230,12 @@ def register(prompt_server) -> None:
         # google SDK and inside common._cached_email still require a restart.
         if "sa_key_path" in data:
             _apply_sa_key_env()
-        return web.json_response({**get_settings(), "auth_status": get_auth_status()})
+        settings = get_settings()
+        return web.json_response({
+            **settings,
+            "auth_status": get_auth_status(),
+            "reserved_labels": _get_reserved_labels(settings.get("gcp_project", "")),
+        })
 
 
 # Apply any stored SA key path to the process environment at import time so

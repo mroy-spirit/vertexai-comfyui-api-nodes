@@ -1,9 +1,7 @@
 import { app } from "../../../scripts/app.js";
 
 // Settings that are injected into per-node widgets when a node is dragged onto
-// the canvas. Each entry maps a ComfyUI setting id to the widget name it should
-// populate. extra_labels and auth-related settings have no per-node widget
-// and so are absent from this list.
+// the canvas. extra_labels and auth-related settings have no per-node widget.
 const NODE_WIDGET_SETTINGS = [
     { id: "VertexAI.GCPProject",  key: "gcp_project",  widget: "gcp_project" },
     { id: "VertexAI.GCPLocation", key: "gcp_location", widget: "gcp_location" },
@@ -37,6 +35,27 @@ function _injectSettingsIntoNode(node) {
     }
 }
 
+// Build a wider editable text input. `onSave(value)` is called on change.
+function _editableInput(initialValue, onSave, opts = {}) {
+    const el = document.createElement("input");
+    el.type = "text";
+    el.value = initialValue ?? "";
+    el.style.width = "350px";
+    if (opts.placeholder) el.placeholder = opts.placeholder;
+    el.addEventListener("change", () => onSave(el.value));
+    return el;
+}
+
+// Build a wider read-only text input (greyed out, not editable).
+function _readonlyInput(displayValue) {
+    const el = document.createElement("input");
+    el.type = "text";
+    el.value = displayValue ?? "";
+    el.readOnly = true;
+    el.style.cssText = "width:350px;opacity:0.5;cursor:default;";
+    return el;
+}
+
 app.registerExtension({
     name: "VertexAI.Settings",
 
@@ -50,8 +69,9 @@ app.registerExtension({
         const authStatus = serverData.auth_status ?? {};
         const onGce = authStatus.on_gce === true;
         const statusMessage = authStatus.message ?? "Authentication status unknown.";
+        const reservedLabels = serverData.reserved_labels ?? {};
 
-        // The four core settings, registered in both environments.
+        // Editable core settings
         const coreDefs = [
             {
                 id: "VertexAI.GCPProject",
@@ -77,14 +97,6 @@ app.registerExtension({
                 tooltip: "GCS output path for Veo3 video generation, e.g. gs://my-bucket/output/",
                 defaultValue: "",
             },
-            {
-                id: "VertexAI.ExtraLabels",
-                name: "Extra Labels (JSON)",
-                key: "extra_labels",
-                category: ["VertexAI", "Google Cloud", "extra_labels"],
-                tooltip: 'Cloud Logging labels applied to every node. Pre-filled with app=comfyui and user=<your OAuth email>; you can add your own, e.g. {"app":"comfyui","user":"you@example.com","env":"prod"}',
-                defaultValue: "{}",
-            },
         ];
 
         for (const def of coreDefs) {
@@ -97,51 +109,94 @@ app.registerExtension({
                 id: def.id,
                 name: def.name,
                 category: def.category,
-                type: "text",
-                defaultValue: initialValue,
                 tooltip: def.tooltip,
+                defaultValue: initialValue,
+                type(name, setter, value) {
+                    return _editableInput(initialValue, (v) => {
+                        _values[def.id] = v;
+                        setter(v);
+                        _saveToServer(def.key, v);
+                    });
+                },
                 onChange(value) {
                     _values[def.id] = value;
-                    _saveToServer(def.key, value);
                 },
             });
         }
 
-        // Read-only auth status banner. Registered in both environments.
-        // The onChange handler reverts any user edit so the displayed value
-        // always matches the server-reported status.
+        // Extra Labels — empty by default, with example placeholder
+        const rawExtra = serverData.extra_labels ?? "";
+        const initialExtra = (rawExtra === "{}" || rawExtra === "") ? "" : rawExtra;
+        app.ui.settings.addSetting({
+            id: "VertexAI.ExtraLabels",
+            name: "Extra Labels (JSON)",
+            category: ["VertexAI", "Google Cloud", "extra_labels"],
+            tooltip: 'Additional Cloud Logging labels as JSON. Reserved labels (app_id, user_id, project_id) are applied automatically.',
+            defaultValue: initialExtra,
+            type(name, setter, value) {
+                return _editableInput(initialExtra, (v) => {
+                    setter(v);
+                    _saveToServer("extra_labels", v || "{}");
+                }, { placeholder: '{"env": "prod", "team": "ml"}' });
+            },
+            onChange() {},
+        });
+
+        // Auth status — read-only banner
         app.ui.settings.addSetting({
             id: "VertexAI.AuthStatus",
             name: "Authentication Status",
             category: ["VertexAI", "Authentication", "status"],
-            type: "text",
+            tooltip: "Current GCP authentication state. This field is read-only.",
             defaultValue: statusMessage,
-            tooltip: "Current GCP authentication state. This field is read-only; any edits are reverted.",
-            onChange(value) {
-                if (value !== statusMessage && app.ui?.settings?.setSettingValue) {
-                    app.ui.settings.setSettingValue("VertexAI.AuthStatus", statusMessage);
-                }
+            type(name, setter, value) {
+                return _readonlyInput(statusMessage);
             },
+            onChange() {},
         });
 
-        // Service Account Key Path: off-VM only. On GCE the metadata server
-        // handles auth, so this field is not registered at all.
+        // Service Account Key Path: off-VM only
         if (!onGce) {
+            const initialSaPath = serverData.sa_key_path ?? "";
             app.ui.settings.addSetting({
                 id: "VertexAI.SAKeyPath",
                 name: "Service Account Key Path",
                 category: ["VertexAI", "Authentication", "sa_key_path"],
-                type: "text",
-                defaultValue: serverData.sa_key_path ?? "",
-                tooltip: "Absolute path to a Google Cloud service account JSON key file. Restart ComfyUI after changing for the new credentials to fully take effect.",
-                onChange(value) {
-                    _saveToServer("sa_key_path", value);
+                tooltip: "Absolute path to a Google Cloud service account JSON key file. Restart ComfyUI after changing.",
+                defaultValue: initialSaPath,
+                type(name, setter, value) {
+                    return _editableInput(initialSaPath, (v) => {
+                        setter(v);
+                        _saveToServer("sa_key_path", v);
+                    });
                 },
+                onChange() {},
+            });
+        }
+
+        // Reserved Labels — read-only display, greyed out
+        const reservedDefs = [
+            { id: "VertexAI.Reserved.AppId",    name: "app_id",     key: "app_id" },
+            { id: "VertexAI.Reserved.UserId",    name: "user_id",    key: "user_id" },
+            { id: "VertexAI.Reserved.ProjectId", name: "project_id", key: "project_id" },
+        ];
+        for (const entry of reservedDefs) {
+            const val = String(reservedLabels[entry.key] ?? "");
+            app.ui.settings.addSetting({
+                id: entry.id,
+                name: entry.name,
+                category: ["VertexAI", "Reserved Labels", entry.name],
+                tooltip: "Reserved Cloud Logging label — applied automatically to every request, cannot be edited.",
+                defaultValue: val,
+                type(name, setter, value) {
+                    return _readonlyInput(val);
+                },
+                onChange() {},
             });
         }
     },
 
-    // Inject into newly dragged nodes only (not workflow-restored ones)
+    // Inject server values into newly dragged nodes (not workflow-restored ones)
     nodeCreated(node) {
         _injectSettingsIntoNode(node);
     },

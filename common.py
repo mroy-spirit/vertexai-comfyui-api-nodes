@@ -71,18 +71,25 @@ def build_labels(custom_label_key: str = "", custom_label_value: str = "") -> di
     Build a labels dict for Cloud Logging / BigQuery tracking.
 
     Always sets (not overridable):
-      - app = "comfyui"
-      - user = OAuth2 email from reverse proxy, or ADC email as fallback
+      - app_id    = "comfyui"
+      - user_id   = OAuth2 email from reverse proxy, or ADC email as fallback
+      - project_id = GCP project from settings panel
 
     Extra labels from the VertexAI settings panel (extra_labels JSON) are merged in.
     An optional per-node custom label can be added via custom_label_key/value.
     """
     result: dict = {}
 
-    # Admin-configured extra labels from the settings panel
+    settings: dict = {}
     try:
         from .vertexai_settings import get_settings
-        raw = get_settings().get("extra_labels", "{}") or "{}"
+        settings = get_settings()
+    except Exception:
+        pass
+
+    # Admin-configured extra labels from the settings panel
+    try:
+        raw = settings.get("extra_labels", "") or "{}"
         extra = json.loads(raw)
         if isinstance(extra, dict):
             result.update(extra)
@@ -94,9 +101,12 @@ def build_labels(custom_label_key: str = "", custom_label_value: str = "") -> di
         result[custom_label_key.strip()] = custom_label_value
 
     # System-reserved — always written last so they cannot be overridden
-    result["app"] = "comfyui"
+    result["app_id"] = "comfyui"
     email = get_auth_email()
     if email:
-        result["user"] = email
+        result["user_id"] = email
+    project = settings.get("gcp_project", "") or ""
+    if project:
+        result["project_id"] = project
 
     return result
